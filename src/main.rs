@@ -1,6 +1,20 @@
-use std::{env, path::Path};
+use clap::Parser;
+use std::path::Path;
 
-const HELP: &str = "Weft — compile compact web intent to native web artifacts
+/// Compile compact web intent to native web artifacts.
+#[derive(Debug, Parser)]
+#[command(
+    name = "weft",
+    version,
+    about = "Compile compact web intent to native web artifacts",
+    long_about = "Weft compiles .wft source files to standards-native HTML, raw CSS, and only the browser JavaScript required by explicit interactive islands."
+)]
+struct Cli {
+    /// The .wft source file to compile.
+    input: Option<String>,
+}
+
+const MISSING_INPUT_HELP: &str = "Weft — compile compact web intent to native web artifacts
 
 Usage:
   weft <source.wft>
@@ -8,14 +22,13 @@ Usage:
 The initial compiler is being woven. See docs/features/weft.md for the language contract.";
 
 fn main() {
-    let input = env::args().nth(1);
+    let cli = Cli::parse();
 
-    match input.as_deref() {
+    match cli.input.as_deref() {
         None => {
-            println!("{HELP}");
+            println!("{MISSING_INPUT_HELP}");
             std::process::exit(1);
         }
-        Some("--help" | "-h") => println!("{HELP}"),
         Some(path)
             if !Path::new(path)
                 .extension()
