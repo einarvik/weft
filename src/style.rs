@@ -60,6 +60,9 @@ pub fn render_document(document: &Document) -> String {
     if styles.contains("surface:plain") {
         css.push_str(".weft-section[data-surface=\"plain\"] .weft-card{background:#fff}\n");
     }
+    if crate::island::has_islands(document) {
+        css.push_str(".weft-island{display:grid;gap:.75rem;max-width:30rem}.weft-island input{accent-color:var(--weft-brand);width:100%}.weft-island output{font-size:1.25rem;font-weight:700}\n");
+    }
     css.push_str("@media (prefers-reduced-motion:reduce){*{scroll-behavior:auto;transition-duration:0s!important}}\n");
     css
 }

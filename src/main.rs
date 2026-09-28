@@ -4,7 +4,7 @@ use std::{
     path::{Path, PathBuf},
 };
 
-use weft::{render::render_html, style::render_css};
+use weft::{island::render_javascript, parse, render::render_html, style::render_css};
 
 /// Compile compact web intent to native web artifacts.
 #[derive(Debug, Parser)]
@@ -55,6 +55,8 @@ fn run() -> Result<(), String> {
                 .map_err(|error| format!("could not read {}: {error}", path.display()))?;
             let html = render_html(&source).map_err(|error| error.to_string())?;
             let css = render_css(&source).map_err(|error| error.to_string())?;
+            let javascript = render_javascript(&parse(&source).map_err(|error| error.to_string())?)
+                .map_err(|error| error.to_string())?;
             fs::create_dir_all(&cli.output).map_err(|error| {
                 format!(
                     "could not create output directory {}: {error}",
@@ -63,6 +65,14 @@ fn run() -> Result<(), String> {
             })?;
             write(&cli.output.join("index.html"), &html)?;
             write(&cli.output.join("site.css"), &css)?;
+            let island_path = cli.output.join("islands.js");
+            if let Some(javascript) = javascript {
+                write(&island_path, &javascript)?;
+            } else if island_path.exists() {
+                fs::remove_file(&island_path).map_err(|error| {
+                    format!("could not remove {}: {error}", island_path.display())
+                })?;
+            }
             println!("Wove {} into {}", path.display(), cli.output.display());
         }
     }

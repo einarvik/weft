@@ -8,6 +8,7 @@ use std::collections::BTreeMap;
 
 use thiserror::Error;
 
+pub mod island;
 pub mod render;
 pub mod style;
 

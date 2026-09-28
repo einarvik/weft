@@ -1,6 +1,6 @@
 //! Semantic HTML rendering for validated Weft documents.
 
-use crate::{Action, Block, Document, Hero, Page, Section, parse};
+use crate::{Action, Block, Document, Hero, Page, Section, island, parse};
 use thiserror::Error;
 
 #[derive(Debug, Error, PartialEq, Eq)]
@@ -15,6 +15,8 @@ pub enum RenderError {
     UnsafeDestination { line: usize, destination: String },
     #[error("line {line}: unsupported style declaration `{declaration}`")]
     InvalidStyle { line: usize, declaration: String },
+    #[error(transparent)]
+    Island(#[from] island::IslandError),
 }
 
 /// Parse and render one root-page Weft source document as semantic HTML.
@@ -41,6 +43,7 @@ pub fn render_document(document: &Document) -> Result<String, RenderError> {
     if page.path != "/" {
         return Err(RenderError::UnsupportedPages);
     }
+    island::validate(document)?;
 
     let mut html = String::from("<!doctype html>\n<html lang=\"en\">\n<head>\n");
     html.push_str("  <meta charset=\"utf-8\">\n  <meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">\n");
@@ -48,7 +51,11 @@ pub fn render_document(document: &Document) -> Result<String, RenderError> {
     html.push_str(&escape(&site.name));
     html.push_str("</title>\n</head>\n<body>\n  <main>\n");
     render_page(page, &mut html)?;
-    html.push_str("  </main>\n</body>\n</html>\n");
+    html.push_str("  </main>\n");
+    if island::has_islands(document) {
+        html.push_str("  <script type=\"module\" src=\"islands.js\"></script>\n");
+    }
+    html.push_str("</body>\n</html>\n");
     Ok(html)
 }
 
@@ -57,15 +64,29 @@ fn render_page(page: &Page, html: &mut String) -> Result<(), RenderError> {
         match block {
             Block::Hero(hero) => render_hero(hero, html)?,
             Block::Section(section) => render_section(section, html)?,
-            Block::Island(island) => {
-                html.push_str("    <weft-");
-                html.push_str(&escape(&island.name));
-                html.push_str(" class=\"weft-island\"></weft-");
-                html.push_str(&escape(&island.name));
-                html.push_str(">\n");
-            }
+            Block::Island(island) => render_island(island, html)?,
         }
     }
+    Ok(())
+}
+
+fn render_island(declaration: &crate::Island, html: &mut String) -> Result<(), RenderError> {
+    let counter = island::counter(declaration)?;
+    html.push_str("    <weft-counter class=\"weft-island\" data-label=\"");
+    html.push_str(&escape(&counter.label));
+    html.push_str("\" data-initial=\"");
+    html.push_str(&counter.initial.to_string());
+    html.push_str("\" data-min=\"");
+    html.push_str(&counter.minimum.to_string());
+    html.push_str("\" data-max=\"");
+    html.push_str(&counter.maximum.to_string());
+    html.push_str("\" data-prefix=\"");
+    html.push_str(&escape(&counter.prefix));
+    html.push_str("\" data-multiplier=\"");
+    html.push_str(&counter.multiplier.to_string());
+    html.push_str("\" data-suffix=\"");
+    html.push_str(&escape(&counter.suffix));
+    html.push_str("\"></weft-counter>\n");
     Ok(())
 }
 
