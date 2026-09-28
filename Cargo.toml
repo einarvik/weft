@@ -5,7 +5,7 @@ edition = "2024"
 rust-version = "1.91"
 description = "A compact, standards-native language for agent-authored websites."
 license = "MIT"
-repository = "https://github.com/OWNER/weft"
+repository = "https://github.com/andreyluiz/weft"
 keywords = ["dsl", "web", "compiler", "html", "css"]
 categories = ["command-line-utilities", "web-programming"]
 
