@@ -9,6 +9,7 @@ use std::collections::BTreeMap;
 use thiserror::Error;
 
 pub mod render;
+pub mod style;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Document {

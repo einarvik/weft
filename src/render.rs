@@ -13,6 +13,8 @@ pub enum RenderError {
     UnsupportedPages,
     #[error("line {line}: action destination `{destination}` is not a safe URL")]
     UnsafeDestination { line: usize, destination: String },
+    #[error("line {line}: unsupported style declaration `{declaration}`")]
+    InvalidStyle { line: usize, declaration: String },
 }
 
 /// Parse and render one root-page Weft source document as semantic HTML.
@@ -54,7 +56,7 @@ fn render_page(page: &Page, html: &mut String) -> Result<(), RenderError> {
     for block in &page.blocks {
         match block {
             Block::Hero(hero) => render_hero(hero, html)?,
-            Block::Section(section) => render_section(section, html),
+            Block::Section(section) => render_section(section, html)?,
             Block::Island(island) => {
                 html.push_str("    <weft-");
                 html.push_str(&escape(&island.name));
@@ -106,10 +108,12 @@ fn render_action(action: &Action, html: &mut String) -> Result<(), RenderError> 
     Ok(())
 }
 
-fn render_section(section: &Section, html: &mut String) {
+fn render_section(section: &Section, html: &mut String) -> Result<(), RenderError> {
     html.push_str("    <section class=\"weft-section weft-section--");
     html.push_str(&escape(&section.name));
-    html.push_str("\">\n      <div class=\"weft-cards\" data-columns=\"");
+    html.push('"');
+    render_style_attributes(section, html)?;
+    html.push_str("\n      <div class=\"weft-cards\" data-columns=\"");
     html.push_str(&section.cards.to_string());
     html.push_str("\">\n");
     for card in &section.items {
@@ -120,6 +124,40 @@ fn render_section(section: &Section, html: &mut String) {
         html.push_str("</p>\n        </article>\n");
     }
     html.push_str("      </div>\n    </section>\n");
+    Ok(())
+}
+
+fn render_style_attributes(section: &Section, html: &mut String) -> Result<(), RenderError> {
+    let Some(style) = &section.style else {
+        return Ok(());
+    };
+    for declaration in style.split_whitespace() {
+        let (property, value) =
+            declaration
+                .split_once(':')
+                .ok_or_else(|| RenderError::InvalidStyle {
+                    line: section.line,
+                    declaration: declaration.to_owned(),
+                })?;
+        let supported = matches!(
+            (property, value),
+            ("wrap", "wide" | "reading")
+                | ("gap", "sm" | "md" | "lg")
+                | ("surface", "soft" | "plain")
+        );
+        if !supported {
+            return Err(RenderError::InvalidStyle {
+                line: section.line,
+                declaration: declaration.to_owned(),
+            });
+        }
+        html.push_str(" data-");
+        html.push_str(property);
+        html.push_str("=\"");
+        html.push_str(value);
+        html.push('"');
+    }
+    Ok(())
 }
 
 fn text_element(html: &mut String, tag: &str, class: &str, value: &str) {
