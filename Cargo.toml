@@ -1,0 +1,19 @@
+[package]
+name = "weft"
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.91"
+description = "A compact, standards-native language for agent-authored websites."
+license = "MIT"
+repository = "https://github.com/OWNER/weft"
+keywords = ["dsl", "web", "compiler", "html", "css"]
+categories = ["command-line-utilities", "web-programming"]
+
+[dependencies]
+
+[lints.rust]
+unsafe_code = "forbid"
+
+[lints.clippy]
+all = "warn"
+pedantic = "warn"
