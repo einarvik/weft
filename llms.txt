@@ -1,0 +1,46 @@
+# Weft
+
+Weft is a free, open-source Rust compiler for compact website descriptions. Source files use `.wft`. The compiler will emit native HTML, raw CSS, and optional isolated browser JavaScript.
+
+## Source contract
+
+- Static HTML is the default output.
+- JavaScript exists only for explicit `island` declarations.
+- Styling declarations express semantic layout and design tokens; output is ordinary CSS, not Tailwind/UnoCSS classes or CSS-in-JS.
+- Links compile to `<a>` elements. Future mutations should prefer HTML forms and server responses.
+- All user-visible text must be HTML-escaped.
+- Invalid syntax must stop compilation and include a source location.
+
+## Current planned core grammar
+
+```wft
+site Name
+theme: brand violet; ink slate; radius lg
+
+page /:
+  hero:
+    eyebrow "Text"
+    title "Text"
+    text "Text"
+    actions:
+      "Label" -> /path primary
+
+  section name cards 3:
+    card "Title" "Description"
+
+  island counter:
+    label "Seats"
+    state seats=5
+    range seats 1..100
+    text "$" + seats * 12 + "/month"
+```
+
+The grammar above is the current implementation target, not a claim that every construct has shipped. Read `docs/language.md` for status.
+
+## Commands
+
+```sh
+cargo fmt --check
+cargo test
+cargo clippy -- -D warnings
+```
