@@ -46,6 +46,14 @@ Show CLI help:
 cargo run -- --help
 ```
 
+Compile the included example:
+
+```sh
+cargo run -- examples/acme.wft --output dist
+```
+
+This writes `dist/index.html`, `dist/site.css`, and, because the example has an explicit counter island, `dist/islands.js`. A source file with no `island` declaration produces only HTML and CSS.
+
 ## Documentation
 
 - [Language direction](docs/features/weft.md)

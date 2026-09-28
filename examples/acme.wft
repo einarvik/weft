@@ -1,0 +1,22 @@
+site Acme
+theme: brand violet; ink slate; radius lg; space compact
+
+page /:
+  hero:
+    eyebrow "For independent teams"
+    title "Ship projects without the ceremony."
+    text "Plan, discuss, and deliver from one calm workspace."
+    actions:
+      "Start free" -> /signup primary
+      "See demo" -> #demo quiet
+
+  section features cards 3 @="wrap:wide gap:lg surface:soft":
+    card "One source of truth" "Keep context close to the work."
+    card "Built for momentum" "Move from idea to delivery."
+    card "Private by default" "Control who can see what."
+
+  island counter:
+    label "Seats"
+    state seats=5
+    range seats 1..100
+    text "$" + seats * 12 + "/month"

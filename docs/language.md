@@ -2,7 +2,7 @@
 
 ## Status
 
-This is the public grammar target for the initial compiler. Constructs are marked **planned** until parser and compiler support land. Agents must not assume planned features work until tests demonstrate them.
+This is the public grammar reference for the initial compiler. The listed constructs are covered by parser/compiler tests. Features outside this document are not supported yet.
 
 ## File format
 
@@ -33,14 +33,14 @@ page /:
 
 | Statement | Meaning | Status |
 | --- | --- | --- |
-| `site Name` | Site name and default document title. | Planned |
-| `theme: …` | Named design tokens selected for the page. | Planned |
-| `page /:` | A routed document. | Planned |
-| `hero:` | A prominent semantic page section. | Planned |
-| `section name cards N:` | A named section rendered as a responsive card grid. | Planned |
-| `title`, `eyebrow`, `text` | Escaped text content. | Planned |
-| `"Label" -> /path variant` | A native link action. | Planned |
-| `card "Title" "Description"` | A card within a cards section. | Planned |
+| `site Name` | Site name and default document title. | Supported |
+| `theme: …` | Named design tokens selected for the page. | Supported |
+| `page /:` | The single root document route. | Supported |
+| `hero:` | A prominent semantic page section. | Supported |
+| `section name cards N:` | A named section rendered as a responsive card grid. | Supported |
+| `title`, `eyebrow`, `text` | Escaped text content. | Supported |
+| `"Label" -> /path variant` | A native link action. | Supported |
+| `card "Title" "Description"` | A card within a cards section. | Supported |
 
 ## Planned interactive islands
 
@@ -52,7 +52,7 @@ island counter:
   text "$" + seats * 12 + "/month"
 ```
 
-An island is a local client boundary. It may generate a small native DOM module; it must not hydrate the page or require a page-wide runtime.
+The supported `counter` island is a local client boundary. It generates a small native custom-element module; it does not hydrate the page or require a page-wide runtime. Its text expression is deliberately constrained to `"prefix" + state * number + "suffix"`.
 
 ## Styling contract
 

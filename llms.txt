@@ -11,7 +11,7 @@ Weft is a free, open-source Rust compiler for compact website descriptions. Sour
 - All user-visible text must be HTML-escaped.
 - Invalid syntax must stop compilation and include a source location.
 
-## Current planned core grammar
+## Supported core grammar
 
 ```wft
 site Name
@@ -35,7 +35,7 @@ page /:
     text "$" + seats * 12 + "/month"
 ```
 
-The grammar above is the current implementation target, not a claim that every construct has shipped. Read `docs/language.md` for status.
+The grammar above is the shipped initial subset. `page /:` is currently the only supported page route; only the `counter` island is supported. Read `docs/language.md` for the exact contract.
 
 ## Commands
 
