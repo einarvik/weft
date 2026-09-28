@@ -1,5 +1,10 @@
-use clap::Parser;
-use std::path::Path;
+use clap::{CommandFactory, Parser};
+use std::{
+    fs,
+    path::{Path, PathBuf},
+};
+
+use weft::{render::render_html, style::render_css};
 
 /// Compile compact web intent to native web artifacts.
 #[derive(Debug, Parser)]
@@ -11,39 +16,60 @@ use std::path::Path;
 )]
 struct Cli {
     /// The .wft source file to compile.
-    input: Option<String>,
+    input: Option<PathBuf>,
+    /// Directory for generated web artifacts.
+    #[arg(short, long, default_value = "dist")]
+    output: PathBuf,
 }
 
-const MISSING_INPUT_HELP: &str = "Weft — compile compact web intent to native web artifacts
-
-Usage:
-  weft <source.wft>
-
-The initial compiler is being woven. See docs/features/weft.md for the language contract.";
-
 fn main() {
+    if let Err(message) = run() {
+        eprintln!("Weft: {message}");
+        std::process::exit(1);
+    }
+}
+
+fn run() -> Result<(), String> {
     let cli = Cli::parse();
 
     match cli.input.as_deref() {
         None => {
-            println!("{MISSING_INPUT_HELP}");
-            std::process::exit(1);
+            Cli::command()
+                .print_help()
+                .map_err(|error| error.to_string())?;
+            println!();
         }
         Some(path)
-            if !Path::new(path)
+            if !path
                 .extension()
                 .is_some_and(|extension| extension.eq_ignore_ascii_case("wft")) =>
         {
-            let name = Path::new(path)
+            let name = path
                 .file_name()
                 .and_then(|name| name.to_str())
-                .unwrap_or(path);
-            eprintln!("Weft expects a .wft source file, received {name}.");
-            std::process::exit(1);
+                .unwrap_or("source");
+            return Err(format!("expected a .wft source file, received {name}"));
         }
-        Some(_) => {
-            eprintln!("Weft source compilation is not available yet.");
-            std::process::exit(1);
+        Some(path) => {
+            let source = fs::read_to_string(path)
+                .map_err(|error| format!("could not read {}: {error}", path.display()))?;
+            let html = render_html(&source).map_err(|error| error.to_string())?;
+            let css = render_css(&source).map_err(|error| error.to_string())?;
+            fs::create_dir_all(&cli.output).map_err(|error| {
+                format!(
+                    "could not create output directory {}: {error}",
+                    cli.output.display()
+                )
+            })?;
+            write(&cli.output.join("index.html"), &html)?;
+            write(&cli.output.join("site.css"), &css)?;
+            println!("Wove {} into {}", path.display(), cli.output.display());
         }
     }
+    Ok(())
+}
+
+fn write(path: &Path, contents: &str) -> Result<(), String> {
+    fs::write(path, contents)
+        .map_err(|error| format!("could not write {}: {error}", path.display()))
 }
