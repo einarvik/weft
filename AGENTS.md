@@ -36,6 +36,7 @@ Run all three before submitting a change. Add focused tests with every parser, v
 ## Editing guidance
 
 - Modify the language reference and `llms.txt` whenever the public grammar changes.
+- When a change affects public `.wft` grammar, diagnostics, or CLI validation, update `editors/vscode/` in the same change and run its JSON/TypeScript checks. The VS Code extension must not drift from the documented language.
 - Keep the CLI error messages actionable: file, line, reason, and expected form where possible.
 - Do not version `dist/` output unless an explicit fixture requires it.
 - Use established Rust crates when they materially improve correctness or developer experience. Explain runtime, binary-size, and maintenance impact for new dependencies in the pull request.
