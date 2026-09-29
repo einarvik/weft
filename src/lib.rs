@@ -30,6 +30,7 @@ pub struct Page {
     pub path: String,
     pub line: usize,
     pub blocks: Vec<Block>,
+    pub named_islands: BTreeMap<String, NamedIsland>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -52,9 +53,30 @@ pub struct Hero {
 pub struct Section {
     pub line: usize,
     pub name: String,
-    pub cards: usize,
     pub style: Option<String>,
-    pub items: Vec<Card>,
+    pub kind: SectionKind,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum SectionKind {
+    Cards { columns: usize, items: Vec<Card> },
+    Content { children: Vec<SectionChild> },
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum SectionChild {
+    Eyebrow(TextExpr),
+    Title(TextExpr),
+    Text(TextExpr),
+    Island(Island),
+    Use { name: String, line: usize },
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct NamedIsland {
+    pub name: String,
+    pub line: usize,
+    pub island: Island,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -220,21 +242,52 @@ impl<'source> Parser<'source> {
 
     fn page(&mut self, path: String, line: usize) -> Result<Page, ParseError> {
         let mut blocks = Vec::new();
+        let mut named_islands = BTreeMap::new();
         while self.at_child_level(1) {
             let line = self.next().expect("child line must exist");
             if line.content == "hero:" {
                 blocks.push(Block::Hero(self.hero(line.number)?));
             } else if let Some(header) = line.content.strip_prefix("section ") {
                 blocks.push(Block::Section(self.section(header, line.number)?));
-            } else if let Some(name) = line
+            } else if let Some(header) = line
                 .content
                 .strip_prefix("island ")
                 .and_then(|value| value.strip_suffix(':'))
             {
-                blocks.push(Block::Island(self.island(
-                    non_empty(name, line.number, "island name")?.to_owned(),
-                    line.number,
-                )?));
+                let mut words = header.split_whitespace();
+                let first = words
+                    .next()
+                    .ok_or_else(|| error(line.number, "island type is required"))?;
+                match words.next() {
+                    None => blocks.push(Block::Island(self.island(
+                        first.to_owned(),
+                        line.number,
+                        2,
+                    )?)),
+                    Some(kind) if words.next().is_none() => {
+                        let name = non_empty(first, line.number, "island name")?.to_owned();
+                        if named_islands.contains_key(&name) {
+                            return Err(error(
+                                line.number,
+                                format!("island `{name}` is already declared"),
+                            ));
+                        }
+                        named_islands.insert(
+                            name.clone(),
+                            NamedIsland {
+                                name,
+                                line: line.number,
+                                island: self.island(kind.to_owned(), line.number, 2)?,
+                            },
+                        );
+                    }
+                    _ => {
+                        return Err(error(
+                            line.number,
+                            "island syntax is `island type:` or `island name type:`",
+                        ));
+                    }
+                }
             } else {
                 return Err(error(
                     line.number,
@@ -243,7 +296,12 @@ impl<'source> Parser<'source> {
             }
         }
         self.reject_deeper_than(0)?;
-        Ok(Page { path, line, blocks })
+        Ok(Page {
+            path,
+            line,
+            blocks,
+            named_islands,
+        })
     }
 
     fn hero(&mut self, line: usize) -> Result<Hero, ParseError> {
@@ -293,34 +351,102 @@ impl<'source> Parser<'source> {
         let name = words
             .next()
             .ok_or_else(|| error(line, "section name is required"))?;
-        if words.next() != Some("cards") {
-            return Err(error(line, "section syntax is `section name cards N:`"));
-        }
-        let cards = words
-            .next()
-            .ok_or_else(|| error(line, "card count is required"))?
-            .parse()
-            .map_err(|_| error(line, "card count must be a positive integer"))?;
-        if cards == 0 || words.next().is_some() {
-            return Err(error(line, "section syntax is `section name cards N:`"));
-        }
-
-        let mut items = Vec::new();
-        while self.at_child_level(2) {
-            let child = self.next().expect("child line must exist");
-            items.push(parse_card(child.content, child.number)?);
-        }
-        self.reject_deeper_than(1)?;
+        let kind = match words.next() {
+            None => SectionKind::Content {
+                children: self.section_content()?,
+            },
+            Some("cards") => {
+                let columns = words
+                    .next()
+                    .ok_or_else(|| error(line, "card count is required"))?
+                    .parse()
+                    .map_err(|_| error(line, "card count must be a positive integer"))?;
+                if columns == 0 || words.next().is_some() {
+                    return Err(error(line, "section syntax is `section name cards N:`"));
+                }
+                let mut items = Vec::new();
+                while self.at_child_level(2) {
+                    let child = self.next().expect("child line must exist");
+                    items.push(parse_card(child.content, child.number)?);
+                }
+                self.reject_deeper_than(1)?;
+                SectionKind::Cards { columns, items }
+            }
+            Some(_) => {
+                return Err(error(
+                    line,
+                    "section syntax is `section name:` or `section name cards N:`",
+                ));
+            }
+        };
         Ok(Section {
             line,
             name: name.to_owned(),
-            cards,
             style,
-            items,
+            kind,
         })
     }
 
-    fn island(&mut self, name: String, line: usize) -> Result<Island, ParseError> {
+    fn section_content(&mut self) -> Result<Vec<SectionChild>, ParseError> {
+        let mut children = Vec::new();
+        while self.at_child_level(2) {
+            let child = self.next().expect("child line must exist");
+            let parsed = match child.content {
+                content if content.starts_with("eyebrow ") => {
+                    SectionChild::Eyebrow(text_value(content, "eyebrow", child.number)?)
+                }
+                content if content.starts_with("title ") => {
+                    SectionChild::Title(text_value(content, "title", child.number)?)
+                }
+                content if content.starts_with("text ") => {
+                    SectionChild::Text(text_value(content, "text", child.number)?)
+                }
+                content if content.starts_with("island ") && content.ends_with(':') => {
+                    let kind = content
+                        .strip_prefix("island ")
+                        .and_then(|value| value.strip_suffix(':'))
+                        .expect("checked island declaration");
+                    if kind.split_whitespace().count() != 1 {
+                        return Err(error(
+                            child.number,
+                            "inline island syntax is `island type:`",
+                        ));
+                    }
+                    SectionChild::Island(self.island(kind.to_owned(), child.number, 3)?)
+                }
+                content if content.starts_with("use ") => {
+                    let name = non_empty(
+                        content.strip_prefix("use ").expect("checked use prefix"),
+                        child.number,
+                        "island reference",
+                    )?;
+                    if name.split_whitespace().count() != 1 {
+                        return Err(error(child.number, "use syntax is `use island-name`"));
+                    }
+                    SectionChild::Use {
+                        name: name.to_owned(),
+                        line: child.number,
+                    }
+                }
+                _ => {
+                    return Err(error(
+                        child.number,
+                        "expected section text, `island type:`, or `use name`",
+                    ));
+                }
+            };
+            children.push(parsed);
+        }
+        self.reject_deeper_than(1)?;
+        Ok(children)
+    }
+
+    fn island(
+        &mut self,
+        name: String,
+        line: usize,
+        child_level: usize,
+    ) -> Result<Island, ParseError> {
         let mut island = Island {
             line,
             name,
@@ -329,7 +455,7 @@ impl<'source> Parser<'source> {
             range: None,
             text: None,
         };
-        while self.at_child_level(2) {
+        while self.at_child_level(child_level) {
             let child = self.next().expect("child line must exist");
             match child.content {
                 content if content.starts_with("label ") => {
@@ -347,7 +473,7 @@ impl<'source> Parser<'source> {
                 _ => return Err(error(child.number, "expected island content")),
             }
         }
-        self.reject_deeper_than(1)?;
+        self.reject_deeper_than(child_level - 1)?;
         Ok(island)
     }
 

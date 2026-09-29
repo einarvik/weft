@@ -1,6 +1,9 @@
 //! Semantic HTML rendering for validated Weft documents.
 
-use crate::{Action, Block, Document, Hero, Page, Section, TextExpr, TextTerm, island, parse};
+use crate::{
+    Action, Block, Document, Hero, Page, Section, SectionChild, SectionKind, TextExpr, TextTerm,
+    island, parse,
+};
 use thiserror::Error;
 
 #[derive(Debug, Error, PartialEq, Eq)]
@@ -21,6 +24,8 @@ pub enum RenderError {
     DynamicTextOutsideIsland { line: usize },
     #[error("line {line}: image URL `{url}` is not safe")]
     UnsafeImageSource { line: usize, url: String },
+    #[error("line {line}: unknown island reference `{name}`")]
+    UnknownIslandReference { line: usize, name: String },
 }
 
 /// Parse and render one root-page Weft source document as semantic HTML.
@@ -68,7 +73,7 @@ fn render_page(page: &Page, html: &mut String) -> Result<(), RenderError> {
     for block in &page.blocks {
         match block {
             Block::Hero(hero) => render_hero(hero, html)?,
-            Block::Section(section) => render_section(section, html, &mut first_card)?,
+            Block::Section(section) => render_section(section, page, html, &mut first_card)?,
             Block::Island(island) => render_island(island, html)?,
         }
     }
@@ -132,6 +137,7 @@ fn render_action(action: &Action, html: &mut String) -> Result<(), RenderError> 
 
 fn render_section(
     section: &Section,
+    page: &Page,
     html: &mut String,
     first_card: &mut bool,
 ) -> Result<(), RenderError> {
@@ -139,23 +145,56 @@ fn render_section(
     html.push_str(&escape(&section.name));
     html.push('"');
     render_style_attributes(section, html)?;
-    html.push_str(">\n      <div class=\"weft-cards\" data-columns=\"");
-    html.push_str(&section.cards.to_string());
-    html.push_str("\">\n");
-    for card in &section.items {
-        html.push_str("        <article class=\"weft-card\">\n");
-        if let Some(image) = &card.image {
-            render_card_image(image, *first_card, html)?;
+    html.push_str(">\n");
+    match &section.kind {
+        SectionKind::Cards { columns, items } => {
+            html.push_str("      <div class=\"weft-cards\" data-columns=\"");
+            html.push_str(&columns.to_string());
+            html.push_str("\">\n");
+            for card in items {
+                html.push_str("        <article class=\"weft-card\">\n");
+                if let Some(image) = &card.image {
+                    render_card_image(image, *first_card, html)?;
+                }
+                html.push_str("          <h2>");
+                html.push_str(&render_static_text(&card.title)?);
+                html.push_str("</h2>\n          <p>");
+                html.push_str(&render_static_text(&card.description)?);
+                html.push_str("</p>\n        </article>\n");
+                *first_card = false;
+            }
+            html.push_str("      </div>\n");
         }
-        html.push_str("          <h2>");
-        html.push_str(&render_static_text(&card.title)?);
-        html.push_str("</h2>\n          <p>");
-        html.push_str(&render_static_text(&card.description)?);
-        html.push_str("</p>\n        </article>\n");
-        *first_card = false;
+        SectionKind::Content { children } => {
+            for child in children {
+                render_section_child(child, page, html)?;
+            }
+        }
     }
-    html.push_str("      </div>\n    </section>\n");
+    html.push_str("    </section>\n");
     Ok(())
+}
+
+fn render_section_child(
+    child: &SectionChild,
+    page: &Page,
+    html: &mut String,
+) -> Result<(), RenderError> {
+    match child {
+        SectionChild::Eyebrow(value) => text_element(html, "p", "weft-eyebrow", value),
+        SectionChild::Title(value) => text_element(html, "h2", "weft-section-title", value),
+        SectionChild::Text(value) => text_element(html, "p", "weft-section-text", value),
+        SectionChild::Island(island) => render_island(island, html),
+        SectionChild::Use { name, line } => {
+            let declaration = page.named_islands.get(name).ok_or_else(|| {
+                RenderError::UnknownIslandReference {
+                    line: *line,
+                    name: name.clone(),
+                }
+            })?;
+            render_island(&declaration.island, html)
+        }
+    }
 }
 
 fn render_card_image(

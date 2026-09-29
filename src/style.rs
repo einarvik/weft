@@ -45,14 +45,15 @@ pub fn render_document(document: &Document) -> String {
     if styles.contains("wrap:reading") {
         css.push_str(".weft-section[data-wrap=\"reading\"]{max-width:42rem}\n");
     }
+    css.push_str(".weft-section-title{font-size:clamp(1.75rem,4vw,3rem);letter-spacing:-.03em}.weft-section-text{max-width:42rem}\n");
     if styles.contains("gap:sm") {
-        css.push_str(".weft-section[data-gap=\"sm\"] .weft-cards{gap:.75rem}\n");
+        css.push_str(".weft-section[data-gap=\"sm\"]{display:grid;gap:.75rem}.weft-section[data-gap=\"sm\"] .weft-cards{gap:.75rem}\n");
     }
     if styles.contains("gap:md") {
-        css.push_str(".weft-section[data-gap=\"md\"] .weft-cards{gap:var(--weft-space)}\n");
+        css.push_str(".weft-section[data-gap=\"md\"]{display:grid;gap:var(--weft-space)}.weft-section[data-gap=\"md\"] .weft-cards{gap:var(--weft-space)}\n");
     }
     if styles.contains("gap:lg") {
-        css.push_str(".weft-section[data-gap=\"lg\"] .weft-cards{gap:clamp(1.5rem,4vw,3rem)}\n");
+        css.push_str(".weft-section[data-gap=\"lg\"]{display:grid;gap:clamp(1.5rem,4vw,3rem)}.weft-section[data-gap=\"lg\"] .weft-cards{gap:clamp(1.5rem,4vw,3rem)}\n");
     }
     if styles.contains("surface:soft") {
         css.push_str(".weft-section[data-surface=\"soft\"] .weft-card{background:color-mix(in srgb,var(--weft-brand) 7%,white)}\n");
@@ -72,7 +73,7 @@ pub fn render_document(document: &Document) -> String {
 
 fn has_card_images(document: &Document) -> bool {
     document.pages.iter().flat_map(|page| &page.blocks).any(|block| {
-        matches!(block, Block::Section(section) if section.items.iter().any(|card| card.image.is_some()))
+        matches!(block, Block::Section(section) if matches!(&section.kind, crate::SectionKind::Cards { items, .. } if items.iter().any(|card| card.image.is_some())))
     })
 }
 
@@ -82,7 +83,10 @@ fn columns(document: &Document) -> BTreeSet<usize> {
         .iter()
         .flat_map(|page| &page.blocks)
         .filter_map(|block| match block {
-            Block::Section(section) => Some(section.cards),
+            Block::Section(section) => match &section.kind {
+                crate::SectionKind::Cards { columns, .. } => Some(*columns),
+                crate::SectionKind::Content { .. } => None,
+            },
             _ => None,
         })
         .collect()

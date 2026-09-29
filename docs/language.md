@@ -55,6 +55,9 @@ page /:
 | `TextExpr -> /path variant` | A native link action. | Supported |
 | `card TextExpr TextExpr` | A card within a cards section. | Supported |
 | `card … image "src" alt TextExpr` | A card image with required alternate text. | Supported |
+| `section name:` | A semantic section containing text and islands. | Supported |
+| `island name counter:` | A named counter-island declaration. | Supported |
+| `use name` | Mount a named island inside a semantic section. | Supported |
 
 ### Card images
 
@@ -63,6 +66,24 @@ card "One source of truth" "Keep context close to the work." image "/images/sour
 ```
 
 Card image sources accept relative paths and `https://` URLs. Alternate text is required and is a `TextExpr`. Images compile to native `<img>` elements; later cards receive `loading="lazy"`.
+
+### Semantic sections and islands
+
+```wft
+island seat-price counter:
+  label seats + " Seats"
+  state seats=5
+  range seats 1..100
+  text "$" + seats * 12 + "/month"
+
+section pricing @="wrap:reading gap:lg":
+  eyebrow "Pricing"
+  title "Pay for the seats you need."
+  text "Change the team size to see your monthly cost."
+  use seat-price
+```
+
+The hero owns the page `h1`. In a top-level semantic section, `eyebrow` and `text` render as paragraphs and `title` renders as an `h2`. A named island declaration does not render by itself; every `use` mounts an independent local state instance. Inline counter islands are also valid inside semantic sections.
 
 ## Planned interactive islands
 

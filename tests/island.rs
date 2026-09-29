@@ -52,3 +52,78 @@ page /:
     let error = render_html(source).expect_err("arbitrary expressions must not compile");
     assert!(error.to_string().contains("only state `seats`"));
 }
+
+#[test]
+fn mounts_named_islands_inside_semantic_sections() {
+    let source = r#"site Acme
+page /:
+  island seat-price counter:
+    label seats + " Seats"
+    state seats=5
+    range seats 1..100
+    text "$" + seats * 12 + "/month"
+  section pricing @="wrap:reading gap:lg":
+    eyebrow "Pricing"
+    title "Pay for the seats you need."
+    text "Change the team size to see your monthly cost."
+    use seat-price
+"#;
+
+    let html = render_html(source).expect("named island should render when mounted");
+    let css = render_css(source).expect("named island CSS should render");
+
+    assert!(html.contains("<h2 class=\"weft-section-title\">Pay for the seats you need.</h2>"));
+    assert!(html.contains("<p class=\"weft-section-text\">Change the team size"));
+    assert_eq!(html.matches("<weft-counter").count(), 1);
+    assert!(html.contains("src=\"islands.js\""));
+    assert!(css.contains(".weft-island"));
+}
+
+#[test]
+fn named_island_declarations_need_a_mount() {
+    let source = r#"site Acme
+page /:
+  island seat-price counter:
+    state seats=5
+    range seats 1..100
+    text "$" + seats * 12 + "/month"
+"#;
+
+    let html = render_html(source).expect("unused declaration is valid");
+    assert!(!html.contains("<weft-counter"));
+    assert!(!html.contains("islands.js"));
+}
+
+#[test]
+fn rejects_unknown_named_islands() {
+    let source = r#"site Acme
+page /:
+  section pricing:
+    use missing-counter
+"#;
+
+    let error = render_html(source).expect_err("unknown island references must fail");
+    assert!(
+        error
+            .to_string()
+            .contains("unknown island reference `missing-counter`")
+    );
+}
+
+#[test]
+fn mounts_inline_islands_inside_semantic_sections() {
+    let source = r#"site Acme
+page /:
+  section pricing:
+    title "Pricing"
+    island counter:
+      label seats + " Seats"
+      state seats=5
+      range seats 1..100
+      text "$" + seats * 12 + "/month"
+"#;
+
+    let html = render_html(source).expect("inline island should render");
+    assert!(html.contains("<section class=\"weft-section weft-section--pricing\""));
+    assert!(html.contains("<weft-counter"));
+}

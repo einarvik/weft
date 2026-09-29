@@ -15,8 +15,14 @@ page /:
     card "Built for momentum" "Move from idea to delivery."
     card "Private by default" "Control who can see what."
 
-  island counter:
-    label "Seats"
+  island seat-price counter:
+    label seats + " Seats"
     state seats=5
     range seats 1..100
     text "$" + seats * 12 + "/month"
+
+  section pricing @="wrap:reading gap:lg":
+    eyebrow "Pricing"
+    title "Pay for the seats you need."
+    text "Change the team size to see your monthly cost."
+    use seat-price

@@ -11,6 +11,8 @@ Weft is a free, open-source Rust compiler for compact website descriptions. Sour
 - All user-visible text must be HTML-escaped.
 - Every text-rendering field accepts a `TextExpr`: literals, identifiers, and `identifier * integer` joined with `+`. State-dependent expressions are valid only inside their declaring counter island.
 - Cards may append `image "src" alt TextExpr`. `alt` is mandatory; sources accept relative paths and `https://` URLs.
+- `section name:` is a semantic flow section supporting `eyebrow`, `title`, `text`, inline `island counter:`, and `use name`.
+- `island name counter:` declares a non-rendering named island. Each `use name` mounts an independent local instance.
 - Invalid syntax must stop compilation and include a source location.
 
 ## Supported core grammar

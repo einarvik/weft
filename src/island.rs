@@ -2,7 +2,7 @@
 
 use thiserror::Error;
 
-use crate::{Block, Document, Island, TextExpr, TextTerm};
+use crate::{Block, Document, Island, SectionChild, SectionKind, TextExpr, TextTerm};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Counter {
@@ -25,16 +25,14 @@ pub enum IslandError {
     InitialOutOfRange { line: usize },
     #[error("line {line}: counter expressions may reference only state `{state}`")]
     InvalidExpression { line: usize, state: String },
+    #[error("line {line}: unknown island reference `{name}`")]
+    UnknownReference { line: usize, name: String },
 }
 
 /// Return whether a document has explicit client islands.
 #[must_use]
 pub fn has_islands(document: &Document) -> bool {
-    document.pages.iter().any(|page| {
-        page.blocks
-            .iter()
-            .any(|block| matches!(block, Block::Island(_)))
-    })
+    mounted_islands(document).is_ok_and(|islands| !islands.is_empty())
 }
 
 /// Validate each island declaration in a document.
@@ -43,12 +41,45 @@ pub fn has_islands(document: &Document) -> bool {
 ///
 /// Returns a line-numbered error when an island is unsupported or malformed.
 pub fn validate(document: &Document) -> Result<(), IslandError> {
-    for island in document.pages.iter().flat_map(|page| &page.blocks) {
-        if let Block::Island(island) = island {
-            let _ = counter(island)?;
-        }
+    for island in mounted_islands(document)? {
+        let _ = counter(island)?;
     }
     Ok(())
+}
+
+fn mounted_islands(document: &Document) -> Result<Vec<&Island>, IslandError> {
+    let mut islands = Vec::new();
+    for page in &document.pages {
+        for block in &page.blocks {
+            match block {
+                Block::Island(island) => islands.push(island),
+                Block::Section(section) => {
+                    if let SectionKind::Content { children } = &section.kind {
+                        for child in children {
+                            match child {
+                                SectionChild::Island(island) => islands.push(island),
+                                SectionChild::Use { name, line } => {
+                                    let declaration =
+                                        page.named_islands.get(name).ok_or_else(|| {
+                                            IslandError::UnknownReference {
+                                                line: *line,
+                                                name: name.clone(),
+                                            }
+                                        })?;
+                                    islands.push(&declaration.island);
+                                }
+                                SectionChild::Eyebrow(_)
+                                | SectionChild::Title(_)
+                                | SectionChild::Text(_) => {}
+                            }
+                        }
+                    }
+                }
+                Block::Hero(_) => {}
+            }
+        }
+    }
+    Ok(islands)
 }
 
 /// Generate the small browser module required by the document's islands.
