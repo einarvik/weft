@@ -12,6 +12,10 @@ This is the public grammar reference for the initial compiler. The listed constr
 - Statements are line-oriented.
 - String literals use double quotes.
 
+## Validation
+
+Use `weft check path/to/site.wft` to validate a document without writing `dist` or generated artifacts. The command runs the same parser, HTML/CSS, and island validation used by compilation. Diagnostics retain their source line, making the command suitable for editor integrations such as the in-repository VS Code extension.
+
 ## Text expressions
 
 Every field that renders text accepts a `TextExpr`:

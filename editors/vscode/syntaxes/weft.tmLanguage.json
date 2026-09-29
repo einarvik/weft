@@ -1,0 +1,66 @@
+{
+  "$schema": "https://raw.githubusercontent.com/martinring/tmlanguage/master/tmlanguage.json",
+  "name": "Weft",
+  "scopeName": "source.weft",
+  "patterns": [
+    { "include": "#style" },
+    { "include": "#strings" },
+    { "include": "#keywords" },
+    { "include": "#operators" },
+    { "include": "#numbers" }
+  ],
+  "repository": {
+    "style": {
+      "patterns": [
+        {
+          "name": "meta.style.weft",
+          "begin": "@=\\\"",
+          "end": "\\\"",
+          "patterns": [
+            {
+              "name": "entity.other.attribute-name.weft",
+              "match": "\\b(?:wrap|gap|surface):[a-z]+\\b"
+            }
+          ]
+        }
+      ]
+    },
+    "strings": {
+      "patterns": [
+        {
+          "name": "string.quoted.double.weft",
+          "begin": "\\\"",
+          "end": "\\\""
+        }
+      ]
+    },
+    "keywords": {
+      "patterns": [
+        {
+          "name": "keyword.control.weft",
+          "match": "\\b(?:site|theme|page|hero|section|cards|card|image|alt|caption|island|use|state|range|label|title|eyebrow|text|actions)\\b"
+        },
+        {
+          "name": "constant.language.weft",
+          "match": "\\b(?:brand|ink|canvas|surface|radius|space|primary|quiet)\\b"
+        }
+      ]
+    },
+    "operators": {
+      "patterns": [
+        {
+          "name": "keyword.operator.weft",
+          "match": "(?:->|\\+|\\*|\\.\\.)"
+        }
+      ]
+    },
+    "numbers": {
+      "patterns": [
+        {
+          "name": "constant.numeric.weft",
+          "match": "\\b\\d+\\b"
+        }
+      ]
+    }
+  }
+}

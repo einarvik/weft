@@ -42,3 +42,46 @@ fn writes_native_site_artifacts() {
 
     fs::remove_dir_all(temporary).expect("temporary artifacts should be removable");
 }
+
+#[test]
+fn checks_source_without_writing_artifacts() {
+    let temporary = std::env::temp_dir().join(format!("weft-check-test-{}", std::process::id()));
+    let source = temporary.join("site.wft");
+    fs::create_dir_all(&temporary).expect("temporary directory should exist");
+    fs::write(
+        &source,
+        "site Acme\npage /:\n  hero:\n    title \"Native web\"\n",
+    )
+    .expect("fixture should be written");
+
+    let result = Command::new(env!("CARGO_BIN_EXE_weft"))
+        .args(["check".as_ref(), source.as_os_str()])
+        .output()
+        .expect("the Weft CLI should start");
+
+    assert!(result.status.success());
+    assert!(String::from_utf8_lossy(&result.stdout).contains("Checked"));
+    assert!(!temporary.join("dist").exists());
+
+    fs::remove_dir_all(temporary).expect("temporary artifacts should be removable");
+}
+
+#[test]
+fn check_preserves_line_aware_compiler_errors() {
+    let temporary = std::env::temp_dir().join(format!("weft-check-error-{}", std::process::id()));
+    let source = temporary.join("broken.wft");
+    fs::create_dir_all(&temporary).expect("temporary directory should exist");
+    fs::write(&source, "site Acme\npage /:\n  title \"Invalid nesting\"\n")
+        .expect("fixture should be written");
+
+    let result = Command::new(env!("CARGO_BIN_EXE_weft"))
+        .args(["check".as_ref(), source.as_os_str()])
+        .output()
+        .expect("the Weft CLI should start");
+
+    assert!(!result.status.success());
+    assert!(String::from_utf8_lossy(&result.stderr).contains("line 3:"));
+    assert!(!temporary.join("dist").exists());
+
+    fs::remove_dir_all(temporary).expect("temporary artifacts should be removable");
+}

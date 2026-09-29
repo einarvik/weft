@@ -1,0 +1,68 @@
+{
+  "name": "weft-vscode",
+  "displayName": "Weft",
+  "description": "Editing support and compiler diagnostics for Weft .wft files.",
+  "version": "0.1.0",
+  "publisher": "weft-dev",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/einarvik/weft.git"
+  },
+  "engines": {
+    "vscode": "^1.95.0"
+  },
+  "categories": [
+    "Programming Languages"
+  ],
+  "main": "./out/extension.js",
+  "activationEvents": [
+    "onLanguage:weft"
+  ],
+  "contributes": {
+    "languages": [
+      {
+        "id": "weft",
+        "aliases": [
+          "Weft",
+          "weft"
+        ],
+        "extensions": [
+          ".wft"
+        ],
+        "configuration": "./language-configuration.json"
+      }
+    ],
+    "grammars": [
+      {
+        "language": "weft",
+        "scopeName": "source.weft",
+        "path": "./syntaxes/weft.tmLanguage.json"
+      }
+    ],
+    "configuration": {
+      "title": "Weft",
+      "properties": {
+        "weft.command": {
+          "type": "string",
+          "default": "weft",
+          "description": "Path or command name for the Weft compiler used for diagnostics."
+        },
+        "weft.checkOnSave": {
+          "type": "boolean",
+          "default": true,
+          "description": "Run `weft check` whenever a Weft document is saved."
+        }
+      }
+    }
+  },
+  "scripts": {
+    "compile": "tsc -p .",
+    "check": "tsc -p . --noEmit"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.1",
+    "@types/vscode": "^1.95.0",
+    "typescript": "^5.7.2"
+  }
+}

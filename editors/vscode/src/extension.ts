@@ -1,0 +1,108 @@
+import { execFile, type ChildProcess } from "node:child_process";
+import * as vscode from "vscode";
+
+const diagnosticSource = "weft";
+const saveDelayMs = 150;
+const lineError = /(?:^|\n).*?line\s+(\d+):\s*(.+)/i;
+
+export function activate(context: vscode.ExtensionContext): void {
+  const diagnostics = vscode.languages.createDiagnosticCollection(diagnosticSource);
+  const output = vscode.window.createOutputChannel("Weft");
+  const checks = new Map<string, ChildProcess>();
+  const delays = new Map<string, NodeJS.Timeout>();
+
+  const clear = (document: vscode.TextDocument): void => {
+    const key = document.uri.toString();
+    checks.get(key)?.kill();
+    checks.delete(key);
+    const delay = delays.get(key);
+    if (delay) {
+      clearTimeout(delay);
+      delays.delete(key);
+    }
+    diagnostics.delete(document.uri);
+  };
+
+  const report = (document: vscode.TextDocument, text: string): void => {
+    const match = lineError.exec(text);
+    if (!match) {
+      diagnostics.delete(document.uri);
+      output.appendLine(text.trim());
+      output.show(true);
+      return;
+    }
+    const line = Math.min(Math.max(Number(match[1]) - 1, 0), document.lineCount - 1);
+    const diagnostic = new vscode.Diagnostic(
+      document.lineAt(line).range,
+      match[2].trim(),
+      vscode.DiagnosticSeverity.Error,
+    );
+    diagnostics.set(document.uri, [diagnostic]);
+  };
+
+  const check = (document: vscode.TextDocument): void => {
+    if (document.languageId !== "weft" || document.uri.scheme !== "file") {
+      return;
+    }
+    const key = document.uri.toString();
+    checks.get(key)?.kill();
+    const command = vscode.workspace.getConfiguration("weft", document.uri).get<string>("command", "weft");
+    const child = execFile(command, ["check", document.uri.fsPath], { windowsHide: true }, (error, stdout, stderr) => {
+      if (checks.get(key) !== child) {
+        return;
+      }
+      checks.delete(key);
+      if (!error) {
+        diagnostics.delete(document.uri);
+        return;
+      }
+      if ((error as NodeJS.ErrnoException).code === "ENOENT") {
+        diagnostics.delete(document.uri);
+        output.appendLine(`Could not run '${command}'. Set weft.command to the installed Weft compiler path.`);
+        output.show(true);
+        return;
+      }
+      report(document, `${stderr}\n${stdout}`);
+    });
+    checks.set(key, child);
+  };
+
+  const scheduleCheck = (document: vscode.TextDocument): void => {
+    const key = document.uri.toString();
+    const pending = delays.get(key);
+    if (pending) {
+      clearTimeout(pending);
+    }
+    delays.set(key, setTimeout(() => {
+      delays.delete(key);
+      check(document);
+    }, saveDelayMs));
+  };
+
+  for (const document of vscode.workspace.textDocuments) {
+    check(document);
+  }
+  context.subscriptions.push(
+    diagnostics,
+    output,
+    vscode.workspace.onDidOpenTextDocument(check),
+    vscode.workspace.onDidSaveTextDocument((document) => {
+      if (vscode.workspace.getConfiguration("weft", document.uri).get<boolean>("checkOnSave", true)) {
+        scheduleCheck(document);
+      }
+    }),
+    vscode.workspace.onDidCloseTextDocument(clear),
+    vscode.workspace.onDidChangeConfiguration((event) => {
+      if (event.affectsConfiguration("weft")) {
+        for (const document of vscode.workspace.textDocuments) {
+          clear(document);
+          check(document);
+        }
+      }
+    }),
+  );
+}
+
+export function deactivate(): void {
+  // Child processes are cancelled when their document closes or the extension host exits.
+}

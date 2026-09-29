@@ -1,0 +1,11 @@
+{
+  "brackets": [
+    ["{", "}"],
+    ["[", "]"],
+    ["(", ")"]
+  ],
+  "indentationRules": {
+    "increaseIndentPattern": "^\\s*.*:\\s*$",
+    "decreaseIndentPattern": "^\\s*$"
+  }
+}

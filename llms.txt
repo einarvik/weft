@@ -15,6 +15,7 @@ Weft is a free, open-source Rust compiler for compact website descriptions. Sour
 - `island name counter:` declares a non-rendering named island. Each `use name` mounts an independent local instance.
 - `theme:` accepts either inline `name value; name value` pairs or an indented block of `name value` pairs. Tokens are `brand`, `ink`, `canvas`, `surface`, `radius`, and `space`; invalid tokens/values fail with their source line.
 - Invalid syntax must stop compilation and include a source location.
+- `weft check file.wft` validates a source file without writing generated artifacts. It is the editor-integration contract; the Rust compiler remains the authoritative parser and validator.
 
 ## Supported core grammar
 

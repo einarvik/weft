@@ -54,11 +54,22 @@ cargo run -- examples/acme.wft --output dist
 
 This writes `dist/index.html`, `dist/site.css`, and, because the example has an explicit counter island, `dist/islands.js`. A source file with no `island` declaration produces only HTML and CSS.
 
+Validate a source file without creating any output:
+
+```sh
+cargo run -- check examples/acme.wft
+```
+
+## VS Code
+
+The repository includes a local VS Code extension in [`editors/vscode`](editors/vscode). It provides `.wft` syntax highlighting and runs `weft check` for native editor diagnostics on open/save. See its [local setup guide](editors/vscode/README.md) to run it in an Extension Development Host. Marketplace publication and an LSP are intentionally not part of this first integration.
+
 ## Documentation
 
 - [Language direction](docs/features/weft.md)
 - [Language reference](docs/language.md)
 - [Architecture](docs/architecture.md)
+- [VS Code extension](editors/vscode/README.md)
 - [Contributing](CONTRIBUTING.md)
 - [Instructions for coding agents](AGENTS.md)
 - [Compact agent reference](llms.txt)
