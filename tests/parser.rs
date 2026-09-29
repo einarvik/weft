@@ -80,6 +80,44 @@ page /:
 }
 
 #[test]
+fn parses_standalone_images_with_optional_captions() {
+    let source = r#"page /:
+  section story:
+    image "/images/workspace.webp" alt "A project workspace" caption "The Acme overview."
+    image "https://images.example/team.webp" alt "A focused team"
+"#;
+
+    let document = parse(source).expect("standalone images should parse");
+    let Block::Section(section) = &document.pages[0].blocks[0] else {
+        panic!("expected a section");
+    };
+    let SectionKind::Content { children } = &section.kind else {
+        panic!("expected a content section");
+    };
+    assert!(matches!(
+        &children[0],
+        SectionChild::Image(image) if image.caption.is_some()
+    ));
+    assert!(matches!(
+        &children[1],
+        SectionChild::Image(image) if image.caption.is_none()
+    ));
+}
+
+#[test]
+fn rejects_empty_standalone_image_alternate_text() {
+    let error = parse("page /:\n  section story:\n    image \"/workspace.webp\" alt \"\"\n")
+        .expect_err("empty alternate text must fail");
+
+    assert_eq!(error.line, 3);
+    assert!(
+        error
+            .message
+            .contains("image alternate text must not be empty")
+    );
+}
+
+#[test]
 fn rejects_invalid_theme_tokens_and_values_with_their_source_line() {
     let unknown = parse("theme: font sans\npage /:\n").expect_err("unknown token must fail");
     assert_eq!(unknown.line, 1);

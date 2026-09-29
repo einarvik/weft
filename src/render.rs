@@ -184,6 +184,7 @@ fn render_section_child(
         SectionChild::Eyebrow(value) => text_element(html, "p", "weft-eyebrow", value),
         SectionChild::Title(value) => text_element(html, "h2", "weft-section-title", value),
         SectionChild::Text(value) => text_element(html, "p", "weft-section-text", value),
+        SectionChild::Image(image) => render_standalone_image(image, html),
         SectionChild::Island(island) => render_island(island, html),
         SectionChild::Use { name, line } => {
             let declaration = page.named_islands.get(name).ok_or_else(|| {
@@ -198,16 +199,11 @@ fn render_section_child(
 }
 
 fn render_card_image(
-    image: &crate::CardImage,
+    image: &crate::Image,
     eager: bool,
     html: &mut String,
 ) -> Result<(), RenderError> {
-    if !safe_image_source(&image.source) {
-        return Err(RenderError::UnsafeImageSource {
-            line: image.line,
-            url: image.source.clone(),
-        });
-    }
+    validate_image_source(image)?;
     html.push_str("          <img class=\"weft-card-image\" src=\"");
     html.push_str(&escape(&image.source));
     html.push_str("\" alt=\"");
@@ -217,6 +213,32 @@ fn render_card_image(
         html.push_str(" loading=\"lazy\"");
     }
     html.push_str(">\n");
+    Ok(())
+}
+
+fn render_standalone_image(image: &crate::Image, html: &mut String) -> Result<(), RenderError> {
+    validate_image_source(image)?;
+    html.push_str("      <figure class=\"weft-image\">\n        <img src=\"");
+    html.push_str(&escape(&image.source));
+    html.push_str("\" alt=\"");
+    html.push_str(&render_static_text(&image.alt)?);
+    html.push_str("\">\n");
+    if let Some(caption) = &image.caption {
+        html.push_str("        <figcaption>");
+        html.push_str(&render_static_text(caption)?);
+        html.push_str("</figcaption>\n");
+    }
+    html.push_str("      </figure>\n");
+    Ok(())
+}
+
+fn validate_image_source(image: &crate::Image) -> Result<(), RenderError> {
+    if !safe_image_source(&image.source) {
+        return Err(RenderError::UnsafeImageSource {
+            line: image.line,
+            url: image.source.clone(),
+        });
+    }
     Ok(())
 }
 

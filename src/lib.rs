@@ -68,6 +68,7 @@ pub enum SectionChild {
     Eyebrow(TextExpr),
     Title(TextExpr),
     Text(TextExpr),
+    Image(Image),
     Island(Island),
     Use { name: String, line: usize },
 }
@@ -114,14 +115,15 @@ pub struct Action {
 pub struct Card {
     pub title: TextExpr,
     pub description: TextExpr,
-    pub image: Option<CardImage>,
+    pub image: Option<Image>,
     pub line: usize,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct CardImage {
+pub struct Image {
     pub source: String,
     pub alt: TextExpr,
+    pub caption: Option<TextExpr>,
     pub line: usize,
 }
 
@@ -425,6 +427,9 @@ impl<'source> Parser<'source> {
                 content if content.starts_with("text ") => {
                     SectionChild::Text(text_value(content, "text", child.number)?)
                 }
+                content if content.starts_with("image ") => {
+                    SectionChild::Image(parse_image(content, child.number, true)?)
+                }
                 content if content.starts_with("island ") && content.ends_with(':') => {
                     let kind = content
                         .strip_prefix("island ")
@@ -455,7 +460,7 @@ impl<'source> Parser<'source> {
                 _ => {
                     return Err(error(
                         child.number,
-                        "expected section text, `island type:`, or `use name`",
+                        "expected section text, `image`, `island type:`, or `use name`",
                     ));
                 }
             };
@@ -674,32 +679,64 @@ fn parse_card(content: &str, line: usize) -> Result<Card, ParseError> {
     })
 }
 
-fn parse_card_image(value: &str, line: usize) -> Result<Option<CardImage>, ParseError> {
+fn parse_card_image(value: &str, line: usize) -> Result<Option<Image>, ParseError> {
     if value.is_empty() {
         return Ok(None);
     }
+    Ok(Some(parse_image(value, line, false)?))
+}
+
+fn parse_image(value: &str, line: usize, allow_caption: bool) -> Result<Image, ParseError> {
     let value = value.strip_prefix("image ").ok_or_else(|| {
         error(
             line,
-            "card syntax is `card TextExpr TextExpr [image \"src\" alt TextExpr]`",
+            "image syntax is `image \"src\" alt TextExpr [caption TextExpr]`",
         )
     })?;
     let (source, value) = take_quoted(value, line)?;
     let value = value
         .strip_prefix(" alt ")
-        .ok_or_else(|| error(line, "card images require `alt TextExpr`"))?;
+        .ok_or_else(|| error(line, "images require `alt TextExpr`"))?;
     let (alt, remaining) = parse_text_expression(value, line)?;
-    if !remaining.trim().is_empty() {
+    require_non_empty_text(&alt, line, "image alternate text")?;
+    let remaining = remaining.trim_start();
+    let caption = if remaining.is_empty() {
+        None
+    } else if allow_caption {
+        let value = remaining.strip_prefix("caption ").ok_or_else(|| {
+            error(
+                line,
+                "image syntax is `image \"src\" alt TextExpr [caption TextExpr]`",
+            )
+        })?;
+        let (caption, remaining) = parse_text_expression(value, line)?;
+        require_non_empty_text(&caption, line, "image caption")?;
+        if !remaining.trim().is_empty() {
+            return Err(error(line, "unexpected text after image caption"));
+        }
+        Some(caption)
+    } else {
         return Err(error(
             line,
-            "unexpected text after card image alternate text",
+            "card syntax is `card TextExpr TextExpr [image \"src\" alt TextExpr]`",
         ));
-    }
-    Ok(Some(CardImage {
+    };
+    Ok(Image {
         source: source.to_owned(),
         alt,
+        caption,
         line,
-    }))
+    })
+}
+
+fn require_non_empty_text(value: &TextExpr, line: usize, field: &str) -> Result<(), ParseError> {
+    if value.terms.iter().all(|term| match term {
+        TextTerm::Literal(value) => value.trim().is_empty(),
+        TextTerm::Identifier(_) | TextTerm::Multiply { .. } => false,
+    }) {
+        return Err(error(line, format!("{field} must not be empty")));
+    }
+    Ok(())
 }
 
 fn parse_state(content: &str, line: usize) -> Result<State, ParseError> {

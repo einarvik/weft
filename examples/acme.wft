@@ -32,3 +32,8 @@ page /:
     title "Pay for the seats you need."
     text "Change the team size to see your monthly cost."
     use seat-price
+
+  section workspace @="wrap:reading gap:lg":
+    title "A calmer workspace"
+    text "Everything important stays close to the work."
+    image "https://placehold.co/1200x800" alt "Placeholder showing the Acme workspace" caption "A focused overview of current projects."

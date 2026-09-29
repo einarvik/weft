@@ -85,11 +85,47 @@ page /:
 }
 
 #[test]
+fn renders_semantic_standalone_images_with_optional_captions() {
+    let source = r#"site Acme
+page /:
+  section story:
+    image "/images/workspace.webp" alt "A & calm <workspace>" caption "Acme & partners."
+    image "https://images.example/team.webp" alt "A focused team"
+"#;
+
+    let html = render_html(source).expect("standalone images should render");
+    assert!(html.contains("<figure class=\"weft-image\">"));
+    assert!(html.contains("src=\"/images/workspace.webp\" alt=\"A &amp; calm &lt;workspace&gt;\""));
+    assert!(html.contains("<figcaption>Acme &amp; partners.</figcaption>"));
+    assert_eq!(html.matches("<figcaption>").count(), 1);
+    assert!(!html.contains("loading=\"lazy\""));
+    assert!(!html.contains("<script"));
+}
+
+#[test]
 fn rejects_unsafe_card_image_urls() {
     let source = r#"site Acme
 page /:
   section work cards 1:
     card "Unsafe" "Never render this." image "javascript:alert(1)" alt "Unsafe"
+"#;
+
+    let error = render_html(source).expect_err("unsafe image URL must fail");
+    assert_eq!(
+        error,
+        RenderError::UnsafeImageSource {
+            line: 4,
+            url: "javascript:alert(1)".to_owned()
+        }
+    );
+}
+
+#[test]
+fn rejects_unsafe_standalone_image_urls() {
+    let source = r#"site Acme
+page /:
+  section story:
+    image "javascript:alert(1)" alt "Unsafe"
 "#;
 
     let error = render_html(source).expect_err("unsafe image URL must fail");

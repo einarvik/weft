@@ -58,6 +58,7 @@ page /:
 | `TextExpr -> /path variant` | A native link action. | Supported |
 | `card TextExpr TextExpr` | A card within a cards section. | Supported |
 | `card … image "src" alt TextExpr` | A card image with required alternate text. | Supported |
+| `image "src" alt TextExpr [caption TextExpr]` | A standalone image in a semantic section. | Supported |
 | `section name:` | A semantic section containing text and islands. | Supported |
 | `island name counter:` | A named counter-island declaration. | Supported |
 | `use name` | Mount a named island inside a semantic section. | Supported |
@@ -69,6 +70,16 @@ card "One source of truth" "Keep context close to the work." image "/images/sour
 ```
 
 Card image sources accept relative paths and `https://` URLs. Alternate text is required and is a `TextExpr`. Images compile to native `<img>` elements; later cards receive `loading="lazy"`.
+
+### Standalone images
+
+```wft
+section story @="wrap:reading gap:lg":
+  title "A calmer workspace"
+  image "/images/workspace.webp" alt "A project workspace showing an issue list" caption "The Acme project overview."
+```
+
+Standalone images are direct children of semantic sections. Their `alt` is required and non-empty; `caption` is optional. They compile to native `<figure>`, `<img>`, and, when supplied, `<figcaption>` markup. Sources follow the same relative-path and `https://` safety rules as card images. Weft leaves loading behavior to the browser for standalone images.
 
 ### Semantic sections and islands
 

@@ -70,7 +70,8 @@ fn mounted_islands(document: &Document) -> Result<Vec<&Island>, IslandError> {
                                 }
                                 SectionChild::Eyebrow(_)
                                 | SectionChild::Title(_)
-                                | SectionChild::Text(_) => {}
+                                | SectionChild::Text(_)
+                                | SectionChild::Image(_) => {}
                             }
                         }
                     }

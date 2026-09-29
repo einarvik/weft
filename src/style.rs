@@ -246,6 +246,9 @@ pub fn render_document(document: &Document) -> String {
     if has_card_images(document) {
         css.push_str(".weft-card-image{aspect-ratio:4/3;border-radius:calc(var(--weft-radius) * .75);display:block;margin-bottom:1.25rem;object-fit:cover;width:100%}\n");
     }
+    if has_standalone_images(document) {
+        css.push_str(".weft-image{margin:0;max-width:100%}.weft-image img{border-radius:var(--weft-radius);display:block;height:auto;max-width:100%;width:100%}.weft-image figcaption{color:color-mix(in srgb,var(--weft-ink) 70%,transparent);font-size:.875rem;margin-top:.5rem}\n");
+    }
     if crate::island::has_islands(document) {
         css.push_str(".weft-island{display:grid;gap:.75rem;max-width:30rem}.weft-island input{accent-color:var(--weft-brand);width:100%}.weft-island output{font-size:1.25rem;font-weight:700}\n");
     }
@@ -256,6 +259,12 @@ pub fn render_document(document: &Document) -> String {
 fn has_card_images(document: &Document) -> bool {
     document.pages.iter().flat_map(|page| &page.blocks).any(|block| {
         matches!(block, Block::Section(section) if matches!(&section.kind, crate::SectionKind::Cards { items, .. } if items.iter().any(|card| card.image.is_some())))
+    })
+}
+
+fn has_standalone_images(document: &Document) -> bool {
+    document.pages.iter().flat_map(|page| &page.blocks).any(|block| {
+        matches!(block, Block::Section(section) if matches!(&section.kind, crate::SectionKind::Content { children } if children.iter().any(|child| matches!(child, crate::SectionChild::Image(_)))))
     })
 }
 

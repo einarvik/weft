@@ -71,3 +71,17 @@ fn emits_card_image_css_only_when_needed() {
     assert!(css.contains(".weft-card-image"));
     assert!(!static_css.contains(".weft-card-image"));
 }
+
+#[test]
+fn emits_standalone_image_css_only_when_needed() {
+    let css = render_css(
+        "site Acme\npage /:\n  section story:\n    image \"/workspace.webp\" alt \"Workspace\" caption \"Acme overview.\"\n",
+    )
+    .expect("standalone image source should parse");
+    let static_css = render_css("site Acme\npage /:\n  section story:\n    text \"No image\"\n")
+        .expect("static source should parse");
+
+    assert!(css.contains(".weft-image img"));
+    assert!(css.contains(".weft-image figcaption"));
+    assert!(!static_css.contains(".weft-image"));
+}
