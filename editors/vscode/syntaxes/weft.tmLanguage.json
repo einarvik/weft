@@ -38,7 +38,7 @@
       "patterns": [
         {
           "name": "keyword.control.weft",
-          "match": "\\b(?:site|theme|page|hero|section|cards|card|image|alt|caption|island|use|state|range|label|title|eyebrow|text|actions)\\b"
+          "match": "\\b(?:site|theme|dark|page|hero|section|cards|card|image|alt|caption|island|use|state|range|label|title|eyebrow|text|actions)\\b"
         },
         {
           "name": "constant.language.weft",

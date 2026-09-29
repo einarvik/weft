@@ -1,6 +1,9 @@
 //! Raw CSS generation for Weft documents.
 
-use std::{collections::BTreeSet, fmt::Write as _};
+use std::{
+    collections::{BTreeMap, BTreeSet},
+    fmt::Write as _,
+};
 
 use crate::{Block, Document, parse};
 
@@ -203,6 +206,7 @@ pub fn render_document(document: &Document) -> String {
         radius(document),
         space(document)
     );
+    write_dark_theme(&mut css, document);
     css.push_str("*{box-sizing:border-box}\nbody{margin:0;background:var(--weft-canvas);color:var(--weft-ink);font-family:system-ui,sans-serif;line-height:1.5}\na{color:inherit}\n:focus-visible{outline:3px solid var(--weft-brand);outline-offset:3px}\nmain{padding:clamp(2rem,8vw,7rem) 1.5rem}\n.weft-hero,.weft-section{margin-inline:auto;max-width:72rem}.weft-hero{max-width:52rem}.weft-eyebrow{color:var(--weft-brand);font-weight:700;text-transform:uppercase;letter-spacing:.08em}.weft-title{font-size:clamp(2.5rem,7vw,5.5rem);line-height:1.02;letter-spacing:-.05em}.weft-lede{font-size:clamp(1.125rem,2vw,1.375rem);max-width:42rem}.weft-actions{display:flex;flex-wrap:wrap;gap:var(--weft-space)}.weft-action{border-radius:var(--weft-radius);padding:.75rem 1rem;text-decoration:none}.weft-action--primary{background:var(--weft-brand);color:#fff}.weft-action--quiet{text-decoration:underline}.weft-section{margin-top:clamp(4rem,10vw,9rem)}.weft-cards{display:grid;gap:var(--weft-space);grid-template-columns:1fr}.weft-card{background:var(--weft-surface);border:1px solid color-mix(in srgb,var(--weft-ink) 15%,transparent);border-radius:var(--weft-radius);padding:clamp(1.25rem,3vw,2rem)}\n");
 
     let columns = columns(document);
@@ -309,8 +313,16 @@ fn palette_color(
     role: PaletteRole,
     fallback: &'static str,
 ) -> &'static str {
-    document
-        .theme
+    palette_color_from_theme(&document.theme, token, role, fallback)
+}
+
+fn palette_color_from_theme(
+    theme: &BTreeMap<String, String>,
+    token: &str,
+    role: PaletteRole,
+    fallback: &'static str,
+) -> &'static str {
+    theme
         .get(token)
         .and_then(|value| palette(value))
         .map_or(fallback, |palette| match role {
@@ -321,11 +333,53 @@ fn palette_color(
 }
 
 fn surface_color(document: &Document, token: &str, fallback: &'static str) -> &'static str {
-    match document.theme.get(token).map(String::as_str) {
+    surface_color_from_theme(&document.theme, token, fallback)
+}
+
+fn surface_color_from_theme(
+    theme: &BTreeMap<String, String>,
+    token: &str,
+    fallback: &'static str,
+) -> &'static str {
+    match theme.get(token).map(String::as_str) {
         Some("white") => "#fff",
         Some("black") => "#000",
-        _ => palette_color(document, token, PaletteRole::Pale, fallback),
+        _ => palette_color_from_theme(theme, token, PaletteRole::Pale, fallback),
     }
+}
+
+fn ink_color_from_theme(
+    theme: &BTreeMap<String, String>,
+    token: &str,
+    fallback: &'static str,
+) -> &'static str {
+    match theme.get(token).map(String::as_str) {
+        Some("white") => "#fff",
+        Some("black") => "#000",
+        _ => palette_color_from_theme(theme, token, PaletteRole::Ink, fallback),
+    }
+}
+
+fn write_dark_theme(css: &mut String, document: &Document) {
+    if document.dark_theme.is_empty() {
+        return;
+    }
+
+    css.push_str("@media (prefers-color-scheme: dark){:root{");
+    for token in ["brand", "ink", "canvas", "surface"] {
+        let value = match token {
+            "brand" => {
+                palette_color_from_theme(&document.dark_theme, token, PaletteRole::Brand, "#6d28d9")
+            }
+            "ink" => ink_color_from_theme(&document.dark_theme, token, "#0f172a"),
+            "canvas" | "surface" => surface_color_from_theme(&document.dark_theme, token, "#fff"),
+            _ => unreachable!("the token list is fixed"),
+        };
+        if document.dark_theme.contains_key(token) {
+            write!(css, "--weft-{token}:{value};").expect("writing to a String cannot fail");
+        }
+    }
+    css.push_str("}}\n");
 }
 
 fn palette(name: &str) -> Option<Palette> {

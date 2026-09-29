@@ -13,7 +13,7 @@ Weft is a free, open-source Rust compiler for compact website descriptions. Sour
 - Cards may append `image "src" alt TextExpr`. `alt` is mandatory; sources accept relative paths and `https://` URLs.
 - `section name:` is a semantic flow section supporting `eyebrow`, `title`, `text`, `image "src" alt TextExpr [caption TextExpr]`, inline `island counter:`, and `use name`. Standalone images compile to native figure/img/optional figcaption markup; `alt` is mandatory and non-empty.
 - `island name counter:` declares a non-rendering named island. Each `use name` mounts an independent local instance.
-- `theme:` accepts either inline `name value; name value` pairs or an indented block of `name value` pairs. Tokens are `brand`, `ink`, `canvas`, `surface`, `radius`, and `space`; invalid tokens/values fail with their source line.
+- `theme:` accepts either inline `name value; name value` pairs or an indented block of `name value` pairs. A block can nest `dark:` with one further indentation level of `brand`, `ink`, `canvas`, and `surface` overrides. Dark `ink` also accepts `white` or `black`; it compiles to `prefers-color-scheme: dark` CSS only, with no JavaScript. Tokens are `brand`, `ink`, `canvas`, `surface`, `radius`, and `space`; invalid tokens/values fail with their source line.
 - Invalid syntax must stop compilation and include a source location.
 - `weft check file.wft` validates a source file without writing generated artifacts. It is the editor-integration contract; the Rust compiler remains the authoritative parser and validator.
 
@@ -25,6 +25,9 @@ theme:
   brand violet
   ink slate
   radius lg
+  dark:
+    ink white
+    canvas black
 
 page /:
   hero:

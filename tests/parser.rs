@@ -80,6 +80,26 @@ page /:
 }
 
 #[test]
+fn parses_nested_dark_theme_overrides() {
+    let source = r#"theme:
+  brand blue
+  ink slate
+  dark:
+    brand sky
+    ink white
+    canvas black
+page /:
+"#;
+
+    let document = parse(source).expect("nested dark theme should parse");
+
+    assert_eq!(document.theme["brand"], "blue");
+    assert_eq!(document.dark_theme["brand"], "sky");
+    assert_eq!(document.dark_theme["ink"], "white");
+    assert_eq!(document.dark_theme["canvas"], "black");
+}
+
+#[test]
 fn parses_standalone_images_with_optional_captions() {
     let source = r#"page /:
   section story:
@@ -136,6 +156,23 @@ fn rejects_invalid_theme_tokens_and_values_with_their_source_line() {
         .expect_err("theme entries must use one indentation level");
     assert_eq!(malformed.line, 2);
     assert!(malformed.message.contains("unexpected indentation"));
+}
+
+#[test]
+fn rejects_invalid_dark_theme_blocks_with_their_source_line() {
+    let empty = parse("theme:\n  dark:\npage /:\n").expect_err("empty dark theme must fail");
+    assert_eq!(empty.line, 2);
+    assert!(empty.message.contains("dark theme blocks require"));
+
+    let layout = parse("theme:\n  dark:\n    radius lg\npage /:\n")
+        .expect_err("dark layout token must fail");
+    assert_eq!(layout.line, 3);
+    assert!(layout.message.contains("dark themes support"));
+
+    let indentation = parse("theme:\n  dark:\n      ink white\npage /:\n")
+        .expect_err("misindented dark theme must fail");
+    assert_eq!(indentation.line, 3);
+    assert!(indentation.message.contains("unexpected indentation"));
 }
 
 #[test]

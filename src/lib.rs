@@ -16,6 +16,7 @@ pub mod style;
 pub struct Document {
     pub site: Option<Site>,
     pub theme: BTreeMap<String, String>,
+    pub dark_theme: BTreeMap<String, String>,
     pub pages: Vec<Page>,
 }
 
@@ -156,6 +157,12 @@ struct Line<'source> {
     content: &'source str,
 }
 
+#[derive(Default)]
+struct ThemeBlock {
+    base: BTreeMap<String, String>,
+    dark: BTreeMap<String, String>,
+}
+
 /// Parse a complete `.wft` document.
 ///
 /// # Errors
@@ -209,6 +216,7 @@ impl<'source> Parser<'source> {
         let mut document = Document {
             site: None,
             theme: BTreeMap::new(),
+            dark_theme: BTreeMap::new(),
             pages: Vec::new(),
         };
 
@@ -221,7 +229,9 @@ impl<'source> Parser<'source> {
                     line: line.number,
                 });
             } else if line.content == "theme:" {
-                document.theme.extend(self.theme_block(line.number)?);
+                let theme = self.theme_block(line.number)?;
+                document.theme.extend(theme.base);
+                document.dark_theme.extend(theme.dark);
             } else if let Some(tokens) = line.content.strip_prefix("theme:") {
                 document
                     .theme
@@ -246,23 +256,47 @@ impl<'source> Parser<'source> {
         Ok(document)
     }
 
-    fn theme_block(&mut self, line: usize) -> Result<BTreeMap<String, String>, ParseError> {
-        let mut theme = BTreeMap::new();
+    fn theme_block(&mut self, line: usize) -> Result<ThemeBlock, ParseError> {
+        let mut theme = ThemeBlock::default();
         while self.at_child_level(1) {
             let child = self.next().expect("theme child must exist");
-            let (name, value) = parse_theme_pair(child.content, child.number)?;
-            theme.insert(name, value);
+            if child.content == "dark:" {
+                theme.dark.extend(self.dark_theme_block(child.number)?);
+            } else {
+                let (name, value) = parse_theme_pair(child.content, child.number)?;
+                theme.base.insert(name, value);
+            }
         }
-        if theme.is_empty() {
+        if theme.base.is_empty() && theme.dark.is_empty() {
             if let Some(child) = self.peek().filter(|child| child.level > 0) {
                 return Err(error(child.number, "unexpected indentation"));
             }
             return Err(error(
                 line,
-                "theme blocks require an indented `name value` pair",
+                "theme blocks require an indented `name value` pair or `dark:` block",
             ));
         }
         self.reject_deeper_than(0)?;
+        Ok(theme)
+    }
+
+    fn dark_theme_block(&mut self, line: usize) -> Result<BTreeMap<String, String>, ParseError> {
+        let mut theme = BTreeMap::new();
+        while self.at_child_level(2) {
+            let child = self.next().expect("dark theme child must exist");
+            let (name, value) = parse_dark_theme_pair(child.content, child.number)?;
+            theme.insert(name, value);
+        }
+        if theme.is_empty() {
+            if let Some(child) = self.peek().filter(|child| child.level > 1) {
+                return Err(error(child.number, "unexpected indentation"));
+            }
+            return Err(error(
+                line,
+                "dark theme blocks require an indented color `name value` pair",
+            ));
+        }
+        self.reject_deeper_than(1)?;
         Ok(theme)
     }
 
@@ -551,6 +585,12 @@ fn parse_theme_inline(tokens: &str, line: usize) -> Result<BTreeMap<String, Stri
 }
 
 fn parse_theme_pair(tokens: &str, line: usize) -> Result<(String, String), ParseError> {
+    let (name, value) = split_theme_pair(tokens, line)?;
+    validate_theme_pair(name, value, line)?;
+    Ok((name.to_owned(), value.to_owned()))
+}
+
+fn split_theme_pair(tokens: &str, line: usize) -> Result<(&str, &str), ParseError> {
     let mut words = tokens.split_whitespace();
     let name = words
         .next()
@@ -561,8 +601,24 @@ fn parse_theme_pair(tokens: &str, line: usize) -> Result<(String, String), Parse
     if words.next().is_some() {
         return Err(error(line, "theme tokens use `name value` pairs"));
     }
-    validate_theme_pair(name, value, line)?;
-    Ok((name.to_owned(), value.to_owned()))
+    Ok((name, value))
+}
+
+fn parse_dark_theme_pair(tokens: &str, line: usize) -> Result<(String, String), ParseError> {
+    let (name, value) = split_theme_pair(tokens, line)?;
+    match name {
+        "ink" if matches!(value, "white" | "black") => Ok((name.to_owned(), value.to_owned())),
+        "brand" | "ink" | "canvas" | "surface" => {
+            validate_theme_pair(name, value, line)?;
+            Ok((name.to_owned(), value.to_owned()))
+        }
+        _ => Err(error(
+            line,
+            format!(
+                "dark themes support `brand`, `ink`, `canvas`, and `surface`; `{name}` is not a color token"
+            ),
+        )),
+    }
 }
 
 fn validate_theme_pair(name: &str, value: &str, line: usize) -> Result<(), ParseError> {

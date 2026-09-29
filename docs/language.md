@@ -37,6 +37,9 @@ theme:
   brand violet
   ink slate
   radius lg
+  dark:
+    ink white
+    canvas black
 
 page /:
   hero:
@@ -117,7 +120,7 @@ The supported `counter` island is a local client boundary. It generates a small 
 
 ## Styling contract
 
-The source selects compact semantic values. The compiler owns the browser mechanics. Use an inline declaration for a small theme or an indented block for a theme that needs more roles; both forms are equivalent.
+The source selects compact semantic values. The compiler owns the browser mechanics. Use an inline declaration for a small base theme or an indented block for a theme that needs more roles. A block may also contain a nested automatic dark theme.
 
 ```wft
 theme: brand violet; ink slate; radius lg
@@ -129,6 +132,10 @@ theme:
   surface slate
   radius lg
   space compact
+  dark:
+    ink white
+    canvas black
+    surface zinc
 section features cards 3 @="wrap:wide gap:lg surface:soft"
 ```
 
@@ -143,7 +150,9 @@ section features cards 3 @="wrap:wide gap:lg surface:soft"
 
 Omitted roles use `brand violet`, `ink slate`, `canvas white`, a soft neutral surface, `radius md`, and `space normal`. Every supplied token and value is validated: Weft reports the declaration line instead of silently falling back to another color.
 
-Generated CSS may use custom properties, `@media`, Grid, Flexbox, `clamp()`, and `:focus-visible`. It must be raw CSS and should emit only values/rules used by the page. Theme roles compile to literal values in `--weft-brand`, `--weft-ink`, `--weft-canvas`, `--weft-surface`, `--weft-radius`, and `--weft-space`.
+`dark:` is valid only inside an indented `theme:` block. It contains one further level of `brand`, `ink`, `canvas`, or `surface` declarations; these override only the supplied color roles when the browser reports a dark system preference. It uses the normal color values and additionally allows `ink white` or `ink black`; `radius` and `space` are not valid in `dark:`. The feature uses no JavaScript, toggle, or saved preference. An inline `theme: …` declaration describes the base theme only.
+
+Generated CSS may use custom properties, `@media`, Grid, Flexbox, `clamp()`, and `:focus-visible`. It must be raw CSS and should emit only values/rules used by the page. Theme roles compile to literal values in `--weft-brand`, `--weft-ink`, `--weft-canvas`, `--weft-surface`, `--weft-radius`, and `--weft-space`. When `dark:` is present, Weft emits only its supplied color variables inside `@media (prefers-color-scheme: dark)`.
 
 ## Errors
 

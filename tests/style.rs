@@ -38,6 +38,24 @@ fn emits_semantic_colors_from_an_inline_theme() {
 }
 
 #[test]
+fn emits_only_declared_dark_theme_overrides() {
+    let css = render_css(
+        "theme:\n  brand blue\n  ink slate\n  dark:\n    brand sky\n    ink white\n    canvas black\npage /:\n",
+    )
+    .expect("dark theme source should parse");
+
+    assert!(css.contains("@media (prefers-color-scheme: dark){:root{--weft-brand:#0284c7;--weft-ink:#fff;--weft-canvas:#000;}}"));
+    assert!(!css.contains("@media (prefers-color-scheme: dark){:root{--weft-surface"));
+}
+
+#[test]
+fn omits_dark_theme_media_rule_without_dark_overrides() {
+    let css = render_css("theme: brand blue\npage /:\n").expect("base theme source should parse");
+
+    assert!(!css.contains("prefers-color-scheme: dark"));
+}
+
+#[test]
 fn lowers_style_intent_to_safe_html_attributes() {
     let html = render_html(SOURCE).expect("style intent should render");
 
