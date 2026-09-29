@@ -17,7 +17,8 @@
   ],
   "main": "./out/extension.js",
   "activationEvents": [
-    "onLanguage:weft"
+    "onLanguage:weft",
+    "onCommand:weft.checkCurrentFile"
   ],
   "contributes": {
     "languages": [

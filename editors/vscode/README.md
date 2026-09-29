@@ -34,6 +34,14 @@ Open `examples/acme.wft` to verify syntax highlighting and diagnostics. The exte
 
 To test the bridge explicitly, open a `.wft` file and run **Weft: Check Current File** from the Command Palette. The **Output** panel's **Weft** channel shows the exact compiler command, then either `[ok]` or `[error]`. This is also the first place to check if diagnostics do not appear.
 
+If the Extension Development Host debugger itself does not start, launch a separate local host without the debugger from the repository root on macOS:
+
+```sh
+open -na "Visual Studio Code" --args --extensionDevelopmentPath="$(pwd)/editors/vscode" "$(pwd)"
+```
+
+That new window loads the extension directly. Open `examples/acme.wft` there and run **Weft: Check Current File**. If it works, the extension is sound and only the local VS Code debug session needs attention.
+
 ## Scope
 
 This first slice does not publish a marketplace package and does not include comments, an LSP, completions, formatting, hovers, or code actions. `#` remains available for fragment links such as `-> #demo`; a comment syntax needs its own DSL feature. The Rust compiler remains the authoritative grammar and validation implementation.
