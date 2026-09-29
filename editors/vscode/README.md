@@ -10,15 +10,16 @@ Build the compiler from the repository root:
 cargo build
 ```
 
-Install extension development dependencies and compile it:
+Install extension development dependencies:
 
 ```sh
 cd editors/vscode
 npm install
-npm run compile
 ```
 
-Open `editors/vscode/` in VS Code and run **Extension: Run Extension**. In the Extension Development Host, point the extension at the local compiler if `weft` is not on your `PATH`:
+Open the `editors/vscode/` folder itself in desktop VS Code. Then press **F5**, or open the Run and Debug view and choose **Run Weft Extension**. VS Code runs the `compile extension` task and opens a second window titled **[Extension Development Host]**. That temporary window is a clean VS Code instance with this local extension loaded; it does not install or alter the extension in your normal VS Code profile.
+
+In the Extension Development Host, open the repository root (or another folder containing `.wft` files). Point the extension at the local compiler if `weft` is not on your `PATH`:
 
 ```json
 {
@@ -27,7 +28,7 @@ Open `editors/vscode/` in VS Code and run **Extension: Run Extension**. In the E
 }
 ```
 
-The extension invokes `weft check file.wft` when a Weft file opens and after it is saved. The command validates without creating `dist` or generated artifacts. A missing compiler is reported in the **Weft** output channel; source errors become native editor diagnostics.
+Open `examples/acme.wft` to verify syntax highlighting and diagnostics. The extension invokes `weft check file.wft` when a Weft file opens and after it is saved. The command validates without creating `dist` or generated artifacts. A missing compiler is reported in the **Weft** output channel; source errors become native editor diagnostics.
 
 ## Scope
 
