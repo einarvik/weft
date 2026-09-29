@@ -27,6 +27,7 @@ fn lowers_style_intent_to_safe_html_attributes() {
     assert!(html.contains("data-wrap=\"wide\""));
     assert!(html.contains("data-gap=\"lg\""));
     assert!(html.contains("data-surface=\"soft\""));
+    assert!(html.contains("data-surface=\"soft\">\n      <div class=\"weft-cards\""));
 }
 
 #[test]

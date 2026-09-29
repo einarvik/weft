@@ -134,7 +134,7 @@ fn render_section(section: &Section, html: &mut String) -> Result<(), RenderErro
     html.push_str(&escape(&section.name));
     html.push('"');
     render_style_attributes(section, html)?;
-    html.push_str("\n      <div class=\"weft-cards\" data-columns=\"");
+    html.push_str(">\n      <div class=\"weft-cards\" data-columns=\"");
     html.push_str(&section.cards.to_string());
     html.push_str("\">\n");
     for card in &section.items {
