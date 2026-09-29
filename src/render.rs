@@ -19,6 +19,8 @@ pub enum RenderError {
     Island(#[from] island::IslandError),
     #[error("line {line}: state-dependent text is valid only inside an island")]
     DynamicTextOutsideIsland { line: usize },
+    #[error("line {line}: image URL `{url}` is not safe")]
+    UnsafeImageSource { line: usize, url: String },
 }
 
 /// Parse and render one root-page Weft source document as semantic HTML.
@@ -62,10 +64,11 @@ pub fn render_document(document: &Document) -> Result<String, RenderError> {
 }
 
 fn render_page(page: &Page, html: &mut String) -> Result<(), RenderError> {
+    let mut first_card = true;
     for block in &page.blocks {
         match block {
             Block::Hero(hero) => render_hero(hero, html)?,
-            Block::Section(section) => render_section(section, html)?,
+            Block::Section(section) => render_section(section, html, &mut first_card)?,
             Block::Island(island) => render_island(island, html)?,
         }
     }
@@ -127,7 +130,11 @@ fn render_action(action: &Action, html: &mut String) -> Result<(), RenderError> 
     Ok(())
 }
 
-fn render_section(section: &Section, html: &mut String) -> Result<(), RenderError> {
+fn render_section(
+    section: &Section,
+    html: &mut String,
+    first_card: &mut bool,
+) -> Result<(), RenderError> {
     html.push_str("    <section class=\"weft-section weft-section--");
     html.push_str(&escape(&section.name));
     html.push('"');
@@ -136,13 +143,41 @@ fn render_section(section: &Section, html: &mut String) -> Result<(), RenderErro
     html.push_str(&section.cards.to_string());
     html.push_str("\">\n");
     for card in &section.items {
-        html.push_str("        <article class=\"weft-card\">\n          <h2>");
+        html.push_str("        <article class=\"weft-card\">\n");
+        if let Some(image) = &card.image {
+            render_card_image(image, *first_card, html)?;
+        }
+        html.push_str("          <h2>");
         html.push_str(&render_static_text(&card.title)?);
         html.push_str("</h2>\n          <p>");
         html.push_str(&render_static_text(&card.description)?);
         html.push_str("</p>\n        </article>\n");
+        *first_card = false;
     }
     html.push_str("      </div>\n    </section>\n");
+    Ok(())
+}
+
+fn render_card_image(
+    image: &crate::CardImage,
+    eager: bool,
+    html: &mut String,
+) -> Result<(), RenderError> {
+    if !safe_image_source(&image.source) {
+        return Err(RenderError::UnsafeImageSource {
+            line: image.line,
+            url: image.source.clone(),
+        });
+    }
+    html.push_str("          <img class=\"weft-card-image\" src=\"");
+    html.push_str(&escape(&image.source));
+    html.push_str("\" alt=\"");
+    html.push_str(&render_static_text(&image.alt)?);
+    html.push('"');
+    if !eager {
+        html.push_str(" loading=\"lazy\"");
+    }
+    html.push_str(">\n");
     Ok(())
 }
 
@@ -214,6 +249,14 @@ fn safe_destination(destination: &str) -> bool {
         || destination.starts_with("https://")
         || destination.starts_with("http://")
         || destination.starts_with("mailto:")
+}
+
+fn safe_image_source(source: &str) -> bool {
+    source.starts_with("https://")
+        || source.starts_with('/')
+        || source.starts_with("./")
+        || source.starts_with("../")
+        || (!source.starts_with("//") && !source.contains(':'))
 }
 
 fn escape(value: &str) -> String {

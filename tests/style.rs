@@ -40,3 +40,17 @@ page /:
     let error = render_html(source).expect_err("unknown style intent must fail");
     assert!(error.to_string().contains("unsupported style declaration"));
 }
+
+#[test]
+fn emits_card_image_css_only_when_needed() {
+    let css = render_css(
+        "site Acme\npage /:\n  section work cards 1:\n    card \"Image\" \"Copy\" image \"/work.webp\" alt \"Work\"\n",
+    )
+    .expect("image source should parse");
+    let static_css =
+        render_css("site Acme\npage /:\n  section work cards 1:\n    card \"No image\" \"Copy\"\n")
+            .expect("static source should parse");
+
+    assert!(css.contains(".weft-card-image"));
+    assert!(!static_css.contains(".weft-card-image"));
+}

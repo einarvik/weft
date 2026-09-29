@@ -92,6 +92,14 @@ pub struct Action {
 pub struct Card {
     pub title: TextExpr,
     pub description: TextExpr,
+    pub image: Option<CardImage>,
+    pub line: usize,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct CardImage {
+    pub source: String,
+    pub alt: TextExpr,
     pub line: usize,
 }
 
@@ -433,14 +441,41 @@ fn parse_card(content: &str, line: usize) -> Result<Card, ParseError> {
         .ok_or_else(|| error(line, "expected `card TextExpr TextExpr`"))?;
     let (title, rest) = parse_text_expression(rest, line)?;
     let (description, rest) = parse_text_expression(rest.trim_start(), line)?;
-    if !rest.trim().is_empty() {
-        return Err(error(line, "card syntax is `card TextExpr TextExpr`"));
-    }
+    let image = parse_card_image(rest.trim_start(), line)?;
     Ok(Card {
         title,
         description,
+        image,
         line,
     })
+}
+
+fn parse_card_image(value: &str, line: usize) -> Result<Option<CardImage>, ParseError> {
+    if value.is_empty() {
+        return Ok(None);
+    }
+    let value = value.strip_prefix("image ").ok_or_else(|| {
+        error(
+            line,
+            "card syntax is `card TextExpr TextExpr [image \"src\" alt TextExpr]`",
+        )
+    })?;
+    let (source, value) = take_quoted(value, line)?;
+    let value = value
+        .strip_prefix(" alt ")
+        .ok_or_else(|| error(line, "card images require `alt TextExpr`"))?;
+    let (alt, remaining) = parse_text_expression(value, line)?;
+    if !remaining.trim().is_empty() {
+        return Err(error(
+            line,
+            "unexpected text after card image alternate text",
+        ));
+    }
+    Ok(Some(CardImage {
+        source: source.to_owned(),
+        alt,
+        line,
+    }))
 }
 
 fn parse_state(content: &str, line: usize) -> Result<State, ParseError> {

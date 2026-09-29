@@ -60,11 +60,20 @@ pub fn render_document(document: &Document) -> String {
     if styles.contains("surface:plain") {
         css.push_str(".weft-section[data-surface=\"plain\"] .weft-card{background:#fff}\n");
     }
+    if has_card_images(document) {
+        css.push_str(".weft-card-image{aspect-ratio:4/3;border-radius:calc(var(--weft-radius) * .75);display:block;margin-bottom:1.25rem;object-fit:cover;width:100%}\n");
+    }
     if crate::island::has_islands(document) {
         css.push_str(".weft-island{display:grid;gap:.75rem;max-width:30rem}.weft-island input{accent-color:var(--weft-brand);width:100%}.weft-island output{font-size:1.25rem;font-weight:700}\n");
     }
     css.push_str("@media (prefers-reduced-motion:reduce){*{scroll-behavior:auto;transition-duration:0s!important}}\n");
     css
+}
+
+fn has_card_images(document: &Document) -> bool {
+    document.pages.iter().flat_map(|page| &page.blocks).any(|block| {
+        matches!(block, Block::Section(section) if section.items.iter().any(|card| card.image.is_some()))
+    })
 }
 
 fn columns(document: &Document) -> BTreeSet<usize> {

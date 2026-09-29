@@ -54,6 +54,15 @@ page /:
 | `title`, `eyebrow`, `text` | Escaped `TextExpr` content. | Supported |
 | `TextExpr -> /path variant` | A native link action. | Supported |
 | `card TextExpr TextExpr` | A card within a cards section. | Supported |
+| `card … image "src" alt TextExpr` | A card image with required alternate text. | Supported |
+
+### Card images
+
+```wft
+card "One source of truth" "Keep context close to the work." image "/images/source.webp" alt "Layered documents"
+```
+
+Card image sources accept relative paths and `https://` URLs. Alternate text is required and is a `TextExpr`. Images compile to native `<img>` elements; later cards receive `loading="lazy"`.
 
 ## Planned interactive islands
 

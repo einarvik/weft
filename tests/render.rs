@@ -67,3 +67,37 @@ page /:
     let error = render_html(source).expect_err("page text has no state scope");
     assert_eq!(error, RenderError::DynamicTextOutsideIsland { line: 4 });
 }
+
+#[test]
+fn renders_accessible_card_images() {
+    let source = r#"site Acme
+page /:
+  section work cards 2:
+    card "First" "First image loads eagerly." image "/images/first.webp" alt "First project"
+    card "Second" "Second image loads later." image "https://images.example/second.webp" alt "Second project"
+"#;
+
+    let html = render_html(source).expect("card images should render");
+    assert!(html.contains("src=\"/images/first.webp\" alt=\"First project\""));
+    assert!(html.contains(
+        "src=\"https://images.example/second.webp\" alt=\"Second project\" loading=\"lazy\""
+    ));
+}
+
+#[test]
+fn rejects_unsafe_card_image_urls() {
+    let source = r#"site Acme
+page /:
+  section work cards 1:
+    card "Unsafe" "Never render this." image "javascript:alert(1)" alt "Unsafe"
+"#;
+
+    let error = render_html(source).expect_err("unsafe image URL must fail");
+    assert_eq!(
+        error,
+        RenderError::UnsafeImageSource {
+            line: 4,
+            url: "javascript:alert(1)".to_owned()
+        }
+    );
+}
