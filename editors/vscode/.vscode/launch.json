@@ -5,9 +5,12 @@
       "name": "Run Weft Extension",
       "type": "extensionHost",
       "request": "launch",
+      "runtimeExecutable": "${execPath}",
       "args": [
         "--extensionDevelopmentPath=${workspaceFolder}"
       ],
+      "stopOnEntry": false,
+      "sourceMaps": true,
       "outFiles": [
         "${workspaceFolder}/out/**/*.js"
       ],

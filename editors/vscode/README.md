@@ -19,6 +19,8 @@ npm install
 
 Open the `editors/vscode/` folder itself in desktop VS Code. Then press **F5**, or open the Run and Debug view and choose **Run Weft Extension**. VS Code runs the `compile extension` task and opens a second window titled **[Extension Development Host]**. That temporary window is a clean VS Code instance with this local extension loaded; it does not install or alter the extension in your normal VS Code profile.
 
+The launch configuration explicitly uses VS Code's own executable and continues immediately (`stopOnEntry: false`). If VS Code previously showed an “Extension host did not start” warning, stop the old debug session, close its development-host window, and press F5 again from `editors/vscode/` after pulling this update.
+
 In the Extension Development Host, open the repository root (or another folder containing `.wft` files). Point the extension at the local compiler if `weft` is not on your `PATH`:
 
 ```json
