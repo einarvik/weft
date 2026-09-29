@@ -54,7 +54,13 @@
           "description": "Run `weft check` whenever a Weft document is saved."
         }
       }
-    }
+    },
+    "commands": [
+      {
+        "command": "weft.checkCurrentFile",
+        "title": "Weft: Check Current File"
+      }
+    ]
   },
   "scripts": {
     "compile": "tsc -p .",

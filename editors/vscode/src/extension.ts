@@ -10,6 +10,7 @@ export function activate(context: vscode.ExtensionContext): void {
   const output = vscode.window.createOutputChannel("Weft");
   const checks = new Map<string, ChildProcess>();
   const delays = new Map<string, NodeJS.Timeout>();
+  output.appendLine("Weft extension activated.");
 
   const clear = (document: vscode.TextDocument): void => {
     const key = document.uri.toString();
@@ -27,7 +28,7 @@ export function activate(context: vscode.ExtensionContext): void {
     const match = lineError.exec(text);
     if (!match) {
       diagnostics.delete(document.uri);
-      output.appendLine(text.trim());
+      output.appendLine(`[check] ${document.uri.fsPath}\n${text.trim()}`);
       output.show(true);
       return;
     }
@@ -38,6 +39,7 @@ export function activate(context: vscode.ExtensionContext): void {
       vscode.DiagnosticSeverity.Error,
     );
     diagnostics.set(document.uri, [diagnostic]);
+    output.appendLine(`[error] ${document.uri.fsPath}:${match[1]} ${match[2].trim()}`);
   };
 
   const check = (document: vscode.TextDocument): void => {
@@ -47,6 +49,7 @@ export function activate(context: vscode.ExtensionContext): void {
     const key = document.uri.toString();
     checks.get(key)?.kill();
     const command = vscode.workspace.getConfiguration("weft", document.uri).get<string>("command", "weft");
+    output.appendLine(`[check] ${command} check ${document.uri.fsPath}`);
     const child = execFile(command, ["check", document.uri.fsPath], { windowsHide: true }, (error, stdout, stderr) => {
       if (checks.get(key) !== child) {
         return;
@@ -54,6 +57,7 @@ export function activate(context: vscode.ExtensionContext): void {
       checks.delete(key);
       if (!error) {
         diagnostics.delete(document.uri);
+        output.appendLine(`[ok] ${document.uri.fsPath}`);
         return;
       }
       if ((error as NodeJS.ErrnoException).code === "ENOENT") {
@@ -85,6 +89,19 @@ export function activate(context: vscode.ExtensionContext): void {
   context.subscriptions.push(
     diagnostics,
     output,
+    vscode.commands.registerCommand("weft.checkCurrentFile", () => {
+      const document = vscode.window.activeTextEditor?.document;
+      if (!document) {
+        void vscode.window.showInformationMessage("Open a .wft file to check it with Weft.");
+        return;
+      }
+      if (document.languageId !== "weft") {
+        void vscode.window.showWarningMessage("The active file is not in Weft language mode.");
+        return;
+      }
+      check(document);
+      output.show(true);
+    }),
     vscode.workspace.onDidOpenTextDocument(check),
     vscode.workspace.onDidSaveTextDocument((document) => {
       if (vscode.workspace.getConfiguration("weft", document.uri).get<boolean>("checkOnSave", true)) {

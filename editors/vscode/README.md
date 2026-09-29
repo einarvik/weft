@@ -30,6 +30,8 @@ In the Extension Development Host, open the repository root (or another folder c
 
 Open `examples/acme.wft` to verify syntax highlighting and diagnostics. The extension invokes `weft check file.wft` when a Weft file opens and after it is saved. The command validates without creating `dist` or generated artifacts. A missing compiler is reported in the **Weft** output channel; source errors become native editor diagnostics.
 
+To test the bridge explicitly, open a `.wft` file and run **Weft: Check Current File** from the Command Palette. The **Output** panel's **Weft** channel shows the exact compiler command, then either `[ok]` or `[error]`. This is also the first place to check if diagnostics do not appear.
+
 ## Scope
 
 This first slice does not publish a marketplace package and does not include comments, an LSP, completions, formatting, hovers, or code actions. `#` remains available for fragment links such as `-> #demo`; a comment syntax needs its own DSL feature. The Rust compiler remains the authoritative grammar and validation implementation.
