@@ -12,6 +12,19 @@ This is the public grammar reference for the initial compiler. The listed constr
 - Statements are line-oriented.
 - String literals use double quotes.
 
+## Text expressions
+
+Every field that renders text accepts a `TextExpr`:
+
+```wft
+title "Build " + "native sites"
+text "Simple source, " + "standard output."
+label seats + " Seats"
+text "$" + seats * 12 + "/month"
+```
+
+The supported terms are double-quoted string literals, identifiers, and `identifier * integer`, joined with `+`. Static page content may use literal terms only. A state-dependent expression is valid only inside the counter island that declares that state.
+
 ## Planned document statements
 
 ```wft
@@ -38,9 +51,9 @@ page /:
 | `page /:` | The single root document route. | Supported |
 | `hero:` | A prominent semantic page section. | Supported |
 | `section name cards N:` | A named section rendered as a responsive card grid. | Supported |
-| `title`, `eyebrow`, `text` | Escaped text content. | Supported |
-| `"Label" -> /path variant` | A native link action. | Supported |
-| `card "Title" "Description"` | A card within a cards section. | Supported |
+| `title`, `eyebrow`, `text` | Escaped `TextExpr` content. | Supported |
+| `TextExpr -> /path variant` | A native link action. | Supported |
+| `card TextExpr TextExpr` | A card within a cards section. | Supported |
 
 ## Planned interactive islands
 

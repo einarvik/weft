@@ -3,10 +3,10 @@ use weft::render::{RenderError, render_html};
 const SOURCE: &str = r#"site Acme & Sons
 page /:
   hero:
-    title "Build <native> sites"
-    text "No framework & no runtime."
+    title "Build " + "<native> sites"
+    text "No framework & " + "no runtime."
     actions:
-      "Start free" -> /signup primary
+      "Start " + "free" -> /signup primary
   section features cards 2:
     card "Native HTML" "Useful without JavaScript."
     card "Raw CSS" "No utility-class output."
@@ -54,4 +54,16 @@ fn requires_site_and_one_root_page() {
     let error = render_html("site Acme\npage /about:\n")
         .expect_err("only root pages are currently renderable");
     assert_eq!(error, RenderError::UnsupportedPages);
+}
+
+#[test]
+fn rejects_state_text_outside_an_island() {
+    let source = r#"site Acme
+page /:
+  hero:
+    title seats + " seats"
+"#;
+
+    let error = render_html(source).expect_err("page text has no state scope");
+    assert_eq!(error, RenderError::DynamicTextOutsideIsland { line: 4 });
 }

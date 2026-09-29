@@ -2,17 +2,15 @@
 
 use thiserror::Error;
 
-use crate::{Block, Document, Island, Text};
+use crate::{Block, Document, Island, TextExpr, TextTerm};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Counter {
-    pub label: String,
+    pub label: TextExpr,
     pub initial: i64,
     pub minimum: i64,
     pub maximum: i64,
-    pub prefix: String,
-    pub multiplier: i64,
-    pub suffix: String,
+    pub text: TextExpr,
 }
 
 #[derive(Debug, Error, PartialEq, Eq)]
@@ -25,8 +23,8 @@ pub enum IslandError {
     RangeStateMismatch { line: usize, state: String },
     #[error("line {line}: counter state must be within its range")]
     InitialOutOfRange { line: usize },
-    #[error("line {line}: counter text must use `\"prefix\" + state * number + \"suffix\"`")]
-    InvalidExpression { line: usize },
+    #[error("line {line}: counter expressions may reference only state `{state}`")]
+    InvalidExpression { line: usize, state: String },
 }
 
 /// Return whether a document has explicit client islands.
@@ -64,7 +62,7 @@ pub fn render_javascript(document: &Document) -> Result<Option<String>, IslandEr
         return Ok(None);
     }
     Ok(Some(String::from(
-        "customElements.define(\"weft-counter\",class extends HTMLElement{connectedCallback(){const n=this.dataset;const label=document.createElement(\"label\");label.textContent=n.label;const input=document.createElement(\"input\");input.type=\"range\";input.min=n.min;input.max=n.max;input.value=n.initial;const output=document.createElement(\"output\");const update=()=>{output.textContent=`${n.prefix}${Number(input.value)*Number(n.multiplier)}${n.suffix}`};input.addEventListener(\"input\",update);this.append(label,input,output);update()}});\n",
+        "customElements.define(\"weft-counter\",class extends HTMLElement{connectedCallback(){const n=this.dataset;const label=document.createElement(\"label\");const input=document.createElement(\"input\");input.type=\"range\";input.min=n.min;input.max=n.max;input.value=n.initial;const output=document.createElement(\"output\");const text=e=>JSON.parse(e).map(([k,v])=>k===\"l\"?v:k===\"s\"?input.value:String(Number(input.value)*Number(v))).join(\"\");const update=()=>{label.textContent=text(n.labelExpression);output.textContent=text(n.textExpression)};input.addEventListener(\"input\",update);this.append(label,input,output);update()}});\n",
     )))
 }
 
@@ -93,21 +91,18 @@ pub fn counter(island: &Island) -> Result<Counter, IslandError> {
     if !(range.minimum..=range.maximum).contains(&state.initial) {
         return Err(IslandError::InitialOutOfRange { line: state.line });
     }
-    let (prefix, variable, multiplier, suffix) = expression(text)?;
-    if variable != state.name {
-        return Err(IslandError::InvalidExpression { line: text.line });
-    }
+    validate_expression(text, &state.name)?;
+    let label = island.label.clone().unwrap_or(TextExpr {
+        terms: vec![TextTerm::Literal("Count".to_owned())],
+        line: island.line,
+    });
+    validate_expression(&label, &state.name)?;
     Ok(Counter {
-        label: island
-            .label
-            .as_ref()
-            .map_or_else(|| "Count".to_owned(), |text| text.value.clone()),
+        label,
         initial: state.initial,
         minimum: range.minimum,
         maximum: range.maximum,
-        prefix,
-        multiplier,
-        suffix,
+        text: text.clone(),
     })
 }
 
@@ -119,28 +114,53 @@ fn required<'value, T>(
     value.ok_or(IslandError::Missing { line, field })
 }
 
-fn expression(text: &Text) -> Result<(String, String, i64, String), IslandError> {
-    let parts: Vec<_> = text.value.split(" + ").collect();
-    let [prefix, product, suffix] = parts.as_slice() else {
-        return Err(IslandError::InvalidExpression { line: text.line });
-    };
-    let (variable, multiplier) = product
-        .split_once(" * ")
-        .ok_or(IslandError::InvalidExpression { line: text.line })?;
-    Ok((
-        string_literal(prefix, text.line)?,
-        variable.to_owned(),
-        multiplier
-            .parse()
-            .map_err(|_| IslandError::InvalidExpression { line: text.line })?,
-        string_literal(suffix, text.line)?,
-    ))
+fn validate_expression(expression: &TextExpr, state: &str) -> Result<(), IslandError> {
+    for term in &expression.terms {
+        let identifier = match term {
+            TextTerm::Literal(_) => continue,
+            TextTerm::Identifier(identifier) | TextTerm::Multiply { identifier, .. } => identifier,
+        };
+        if identifier != state {
+            return Err(IslandError::InvalidExpression {
+                line: expression.line,
+                state: state.to_owned(),
+            });
+        }
+    }
+    Ok(())
 }
 
-fn string_literal(value: &str, line: usize) -> Result<String, IslandError> {
+/// Serialize a restricted text expression for the generated island module.
+#[must_use]
+pub fn expression_json(expression: &TextExpr) -> String {
+    let mut json = String::from("[");
+    for (index, term) in expression.terms.iter().enumerate() {
+        if index > 0 {
+            json.push(',');
+        }
+        match term {
+            TextTerm::Literal(value) => {
+                json.push_str("[\"l\",\"");
+                json.push_str(&json_escape(value));
+                json.push_str("\"]");
+            }
+            TextTerm::Identifier(_) => json.push_str("[\"s\",0]"),
+            TextTerm::Multiply { factor, .. } => {
+                json.push_str("[\"m\",");
+                json.push_str(&factor.to_string());
+                json.push(']');
+            }
+        }
+    }
+    json.push(']');
+    json
+}
+
+fn json_escape(value: &str) -> String {
     value
-        .strip_prefix('"')
-        .and_then(|value| value.strip_suffix('"'))
-        .map(str::to_owned)
-        .ok_or(IslandError::InvalidExpression { line })
+        .replace('\\', "\\\\")
+        .replace('"', "\\\"")
+        .replace('\n', "\\n")
+        .replace('\r', "\\r")
+        .replace('\t', "\\t")
 }

@@ -3,7 +3,7 @@ use weft::{island::render_javascript, parse, render::render_html, style::render_
 const COUNTER: &str = r#"site Acme
 page /:
   island counter:
-    label "Seats"
+    label seats + " Seats"
     state seats=5
     range seats 1..100
     text "$" + seats * 12 + "/month"
@@ -21,7 +21,10 @@ fn emits_a_module_only_for_explicit_islands() {
     assert!(javascript.contains("customElements.define(\"weft-counter\""));
     assert!(html.contains("<weft-counter"));
     assert!(html.contains("src=\"islands.js\""));
-    assert!(html.contains("data-multiplier=\"12\""));
+    assert!(html.contains(
+        "data-label-expression=\"[[&quot;s&quot;,0],[&quot;l&quot;,&quot; Seats&quot;]]\""
+    ));
+    assert!(html.contains("data-text-expression=\"[[&quot;l&quot;,&quot;$&quot;],[&quot;m&quot;,12],[&quot;l&quot;,&quot;/month&quot;]]\""));
     assert!(css.contains(".weft-island"));
 }
 
@@ -43,9 +46,9 @@ page /:
   island counter:
     state seats=5
     range seats 1..100
-    text seats + 1
+    text people + " seats"
 "#;
 
     let error = render_html(source).expect_err("arbitrary expressions must not compile");
-    assert!(error.to_string().contains("counter text must use"));
+    assert!(error.to_string().contains("only state `seats`"));
 }

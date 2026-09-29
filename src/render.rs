@@ -1,6 +1,6 @@
 //! Semantic HTML rendering for validated Weft documents.
 
-use crate::{Action, Block, Document, Hero, Page, Section, island, parse};
+use crate::{Action, Block, Document, Hero, Page, Section, TextExpr, TextTerm, island, parse};
 use thiserror::Error;
 
 #[derive(Debug, Error, PartialEq, Eq)]
@@ -17,6 +17,8 @@ pub enum RenderError {
     InvalidStyle { line: usize, declaration: String },
     #[error(transparent)]
     Island(#[from] island::IslandError),
+    #[error("line {line}: state-dependent text is valid only inside an island")]
+    DynamicTextOutsideIsland { line: usize },
 }
 
 /// Parse and render one root-page Weft source document as semantic HTML.
@@ -72,20 +74,16 @@ fn render_page(page: &Page, html: &mut String) -> Result<(), RenderError> {
 
 fn render_island(declaration: &crate::Island, html: &mut String) -> Result<(), RenderError> {
     let counter = island::counter(declaration)?;
-    html.push_str("    <weft-counter class=\"weft-island\" data-label=\"");
-    html.push_str(&escape(&counter.label));
+    html.push_str("    <weft-counter class=\"weft-island\" data-label-expression=\"");
+    html.push_str(&escape(&island::expression_json(&counter.label)));
     html.push_str("\" data-initial=\"");
     html.push_str(&counter.initial.to_string());
     html.push_str("\" data-min=\"");
     html.push_str(&counter.minimum.to_string());
     html.push_str("\" data-max=\"");
     html.push_str(&counter.maximum.to_string());
-    html.push_str("\" data-prefix=\"");
-    html.push_str(&escape(&counter.prefix));
-    html.push_str("\" data-multiplier=\"");
-    html.push_str(&counter.multiplier.to_string());
-    html.push_str("\" data-suffix=\"");
-    html.push_str(&escape(&counter.suffix));
+    html.push_str("\" data-text-expression=\"");
+    html.push_str(&escape(&island::expression_json(&counter.text)));
     html.push_str("\"></weft-counter>\n");
     Ok(())
 }
@@ -93,13 +91,13 @@ fn render_island(declaration: &crate::Island, html: &mut String) -> Result<(), R
 fn render_hero(hero: &Hero, html: &mut String) -> Result<(), RenderError> {
     html.push_str("    <section class=\"weft-hero\">\n");
     if let Some(eyebrow) = &hero.eyebrow {
-        text_element(html, "p", "weft-eyebrow", &eyebrow.value);
+        text_element(html, "p", "weft-eyebrow", eyebrow)?;
     }
     if let Some(title) = &hero.title {
-        text_element(html, "h1", "weft-title", &title.value);
+        text_element(html, "h1", "weft-title", title)?;
     }
     if let Some(text) = &hero.text {
-        text_element(html, "p", "weft-lede", &text.value);
+        text_element(html, "p", "weft-lede", text)?;
     }
     if !hero.actions.is_empty() {
         html.push_str("      <nav class=\"weft-actions\" aria-label=\"Hero actions\">\n");
@@ -124,7 +122,7 @@ fn render_action(action: &Action, html: &mut String) -> Result<(), RenderError> 
     html.push_str("\" href=\"");
     html.push_str(&escape(&action.destination));
     html.push_str("\">");
-    html.push_str(&escape(&action.label));
+    html.push_str(&render_static_text(&action.label)?);
     html.push_str("</a>\n");
     Ok(())
 }
@@ -139,9 +137,9 @@ fn render_section(section: &Section, html: &mut String) -> Result<(), RenderErro
     html.push_str("\">\n");
     for card in &section.items {
         html.push_str("        <article class=\"weft-card\">\n          <h2>");
-        html.push_str(&escape(&card.title));
+        html.push_str(&render_static_text(&card.title)?);
         html.push_str("</h2>\n          <p>");
-        html.push_str(&escape(&card.description));
+        html.push_str(&render_static_text(&card.description)?);
         html.push_str("</p>\n        </article>\n");
     }
     html.push_str("      </div>\n    </section>\n");
@@ -181,16 +179,33 @@ fn render_style_attributes(section: &Section, html: &mut String) -> Result<(), R
     Ok(())
 }
 
-fn text_element(html: &mut String, tag: &str, class: &str, value: &str) {
+fn text_element(
+    html: &mut String,
+    tag: &str,
+    class: &str,
+    value: &TextExpr,
+) -> Result<(), RenderError> {
     html.push_str("      <");
     html.push_str(tag);
     html.push_str(" class=\"");
     html.push_str(class);
     html.push_str("\">");
-    html.push_str(&escape(value));
+    html.push_str(&render_static_text(value)?);
     html.push_str("</");
     html.push_str(tag);
     html.push_str(">\n");
+    Ok(())
+}
+
+fn render_static_text(value: &TextExpr) -> Result<String, RenderError> {
+    let mut html = String::new();
+    for term in &value.terms {
+        let TextTerm::Literal(value) = term else {
+            return Err(RenderError::DynamicTextOutsideIsland { line: value.line });
+        };
+        html.push_str(&escape(value));
+    }
+    Ok(html)
 }
 
 fn safe_destination(destination: &str) -> bool {

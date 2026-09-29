@@ -42,9 +42,9 @@ pub enum Block {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Hero {
     pub line: usize,
-    pub eyebrow: Option<Text>,
-    pub title: Option<Text>,
-    pub text: Option<Text>,
+    pub eyebrow: Option<TextExpr>,
+    pub title: Option<TextExpr>,
+    pub text: Option<TextExpr>,
     pub actions: Vec<Action>,
 }
 
@@ -61,21 +61,28 @@ pub struct Section {
 pub struct Island {
     pub line: usize,
     pub name: String,
-    pub label: Option<Text>,
+    pub label: Option<TextExpr>,
     pub state: Option<State>,
     pub range: Option<Range>,
-    pub text: Option<Text>,
+    pub text: Option<TextExpr>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct Text {
-    pub value: String,
+pub struct TextExpr {
+    pub terms: Vec<TextTerm>,
     pub line: usize,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
+pub enum TextTerm {
+    Literal(String),
+    Identifier(String),
+    Multiply { identifier: String, factor: i64 },
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Action {
-    pub label: String,
+    pub label: TextExpr,
     pub destination: String,
     pub variant: String,
     pub line: usize,
@@ -83,8 +90,8 @@ pub struct Action {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Card {
-    pub title: String,
-    pub description: String,
+    pub title: TextExpr,
+    pub description: TextExpr,
     pub line: usize,
 }
 
@@ -327,13 +334,7 @@ impl<'source> Parser<'source> {
                     island.range = Some(parse_range(content, child.number)?);
                 }
                 content if content.starts_with("text ") => {
-                    island.text = Some(Text {
-                        value: content
-                            .strip_prefix("text ")
-                            .expect("checked text prefix")
-                            .to_owned(),
-                        line: child.number,
-                    });
+                    island.text = Some(text_value(content, "text", child.number)?);
                 }
                 _ => return Err(error(child.number, "expected island content")),
             }
@@ -391,22 +392,23 @@ fn parse_theme(tokens: &str, line: usize) -> Result<BTreeMap<String, String>, Pa
         .collect()
 }
 
-fn text_value(content: &str, keyword: &str, line: usize) -> Result<Text, ParseError> {
+fn text_value(content: &str, keyword: &str, line: usize) -> Result<TextExpr, ParseError> {
     let value = content
         .strip_prefix(keyword)
         .expect("called only after checking the keyword prefix")
         .trim();
-    Ok(Text {
-        value: quoted(value, line)?.to_owned(),
-        line,
-    })
+    let (expression, rest) = parse_text_expression(value, line)?;
+    if !rest.trim().is_empty() {
+        return Err(error(line, "unexpected text after expression"));
+    }
+    Ok(expression)
 }
 
 fn parse_action(content: &str, line: usize) -> Result<Action, ParseError> {
-    let (label, rest) = take_quoted(content, line)?;
+    let (label, rest) = parse_text_expression(content, line)?;
     let rest = rest
         .strip_prefix(" -> ")
-        .ok_or_else(|| error(line, "action syntax is `\"Label\" -> /path variant`"))?;
+        .ok_or_else(|| error(line, "action syntax is `TextExpr -> /path variant`"))?;
     let mut words = rest.split_whitespace();
     let destination = words
         .next()
@@ -415,10 +417,10 @@ fn parse_action(content: &str, line: usize) -> Result<Action, ParseError> {
         .next()
         .ok_or_else(|| error(line, "action variant is required"))?;
     if words.next().is_some() {
-        return Err(error(line, "action syntax is `\"Label\" -> /path variant`"));
+        return Err(error(line, "action syntax is `TextExpr -> /path variant`"));
     }
     Ok(Action {
-        label: label.to_owned(),
+        label,
         destination: destination.to_owned(),
         variant: variant.to_owned(),
         line,
@@ -428,18 +430,15 @@ fn parse_action(content: &str, line: usize) -> Result<Action, ParseError> {
 fn parse_card(content: &str, line: usize) -> Result<Card, ParseError> {
     let rest = content
         .strip_prefix("card ")
-        .ok_or_else(|| error(line, "expected `card \"Title\" \"Description\"`"))?;
-    let (title, rest) = take_quoted(rest, line)?;
-    let (description, rest) = take_quoted(rest.trim_start(), line)?;
+        .ok_or_else(|| error(line, "expected `card TextExpr TextExpr`"))?;
+    let (title, rest) = parse_text_expression(rest, line)?;
+    let (description, rest) = parse_text_expression(rest.trim_start(), line)?;
     if !rest.trim().is_empty() {
-        return Err(error(
-            line,
-            "card syntax is `card \"Title\" \"Description\"`",
-        ));
+        return Err(error(line, "card syntax is `card TextExpr TextExpr`"));
     }
     Ok(Card {
-        title: title.to_owned(),
-        description: description.to_owned(),
+        title,
+        description,
         line,
     })
 }
@@ -509,6 +508,57 @@ fn take_quoted(value: &str, line: usize) -> Result<(&str, &str), ParseError> {
         .split_once('"')
         .ok_or_else(|| error(line, "unterminated double-quoted string"))?;
     Ok((quoted, rest))
+}
+
+fn parse_text_expression(value: &str, line: usize) -> Result<(TextExpr, &str), ParseError> {
+    let mut rest = value.trim_start();
+    let mut terms = vec![parse_text_term(&mut rest, line)?];
+    while let Some(next) = rest.strip_prefix(" + ") {
+        rest = next;
+        terms.push(parse_text_term(&mut rest, line)?);
+    }
+    Ok((TextExpr { terms, line }, rest))
+}
+
+fn parse_text_term(rest: &mut &str, line: usize) -> Result<TextTerm, ParseError> {
+    if rest.starts_with('"') {
+        let (literal, remaining) = take_quoted(rest, line)?;
+        *rest = remaining;
+        return Ok(TextTerm::Literal(literal.to_owned()));
+    }
+
+    let end = rest.find(" + ").unwrap_or(rest.len());
+    let term = rest[..end].trim_end();
+    *rest = &rest[end..];
+    if term.is_empty() {
+        return Err(error(line, "expected a text expression term"));
+    }
+    if let Some((identifier, factor)) = term.split_once(" * ") {
+        return Ok(TextTerm::Multiply {
+            identifier: identifier_name(identifier, line)?.to_owned(),
+            factor: factor
+                .parse()
+                .map_err(|_| error(line, "text expression multiplier must be an integer"))?,
+        });
+    }
+    Ok(TextTerm::Identifier(
+        identifier_name(term, line)?.to_owned(),
+    ))
+}
+
+fn identifier_name(value: &str, line: usize) -> Result<&str, ParseError> {
+    let valid = value.chars().enumerate().all(|(index, character)| {
+        character == '_'
+            || character.is_ascii_alphanumeric() && (index > 0 || !character.is_ascii_digit())
+    });
+    if valid {
+        Ok(value)
+    } else {
+        Err(error(
+            line,
+            "text expression identifiers use letters, digits, and underscores",
+        ))
+    }
 }
 
 fn non_empty<'value>(

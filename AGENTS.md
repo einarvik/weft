@@ -11,6 +11,7 @@ Weft is a Rust compiler for `.wft` files. Its canonical source is compact web in
 - Prefer a small, predictable grammar over punctuation-heavy syntax. Compression must not create ambiguity.
 - Preserve source locations in parse/validation errors.
 - Treat user-visible DSL text as untrusted: HTML-escape it at render time.
+- Preserve `TextExpr` as the shared representation for every text-rendering language field; do not introduce isolated dynamic-string syntaxes.
 
 ## Commands
 
