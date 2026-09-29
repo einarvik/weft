@@ -13,13 +13,17 @@ Weft is a free, open-source Rust compiler for compact website descriptions. Sour
 - Cards may append `image "src" alt TextExpr`. `alt` is mandatory; sources accept relative paths and `https://` URLs.
 - `section name:` is a semantic flow section supporting `eyebrow`, `title`, `text`, inline `island counter:`, and `use name`.
 - `island name counter:` declares a non-rendering named island. Each `use name` mounts an independent local instance.
+- `theme:` accepts either inline `name value; name value` pairs or an indented block of `name value` pairs. Tokens are `brand`, `ink`, `canvas`, `surface`, `radius`, and `space`; invalid tokens/values fail with their source line.
 - Invalid syntax must stop compilation and include a source location.
 
 ## Supported core grammar
 
 ```wft
 site Name
-theme: brand violet; ink slate; radius lg
+theme:
+  brand violet
+  ink slate
+  radius lg
 
 page /:
   hero:

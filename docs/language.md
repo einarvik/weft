@@ -29,7 +29,10 @@ The supported terms are double-quoted string literals, identifiers, and `identif
 
 ```wft
 site Acme
-theme: brand violet; ink slate; radius lg
+theme:
+  brand violet
+  ink slate
+  radius lg
 
 page /:
   hero:
@@ -99,14 +102,33 @@ The supported `counter` island is a local client boundary. It generates a small 
 
 ## Styling contract
 
-The source selects compact semantic values. The compiler owns the browser mechanics.
+The source selects compact semantic values. The compiler owns the browser mechanics. Use an inline declaration for a small theme or an indented block for a theme that needs more roles; both forms are equivalent.
 
 ```wft
 theme: brand violet; ink slate; radius lg
+
+theme:
+  brand red
+  ink slate
+  canvas white
+  surface slate
+  radius lg
+  space compact
 section features cards 3 @="wrap:wide gap:lg surface:soft"
 ```
 
-Generated CSS may use custom properties, `@media`, Grid, Flexbox, `clamp()`, and `:focus-visible`. It must be raw CSS and should emit only values/rules used by the page.
+| Token | Values | Role |
+| --- | --- | --- |
+| `brand` | `red`, `orange`, `amber`, `yellow`, `lime`, `green`, `emerald`, `teal`, `cyan`, `sky`, `blue`, `indigo`, `violet`, `purple`, `fuchsia`, `pink`, `rose`, `slate`, `gray`, `zinc`, `stone` | Primary actions and visible focus. |
+| `ink` | Named palette values above. | Main text color. |
+| `canvas` | `white`, `black`, or a named palette. | Page background. |
+| `surface` | `white`, `black`, or a named palette. | Card background. |
+| `radius` | `sm`, `md`, `lg`, `pill` | Corner radius. |
+| `space` | `tight`, `compact`, `normal`, `roomy` | Baseline gap. |
+
+Omitted roles use `brand violet`, `ink slate`, `canvas white`, a soft neutral surface, `radius md`, and `space normal`. Every supplied token and value is validated: Weft reports the declaration line instead of silently falling back to another color.
+
+Generated CSS may use custom properties, `@media`, Grid, Flexbox, `clamp()`, and `:focus-visible`. It must be raw CSS and should emit only values/rules used by the page. Theme roles compile to literal values in `--weft-brand`, `--weft-ink`, `--weft-canvas`, `--weft-surface`, `--weft-radius`, and `--weft-space`.
 
 ## Errors
 

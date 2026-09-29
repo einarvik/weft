@@ -1,5 +1,11 @@
 site Acme
-theme: brand violet; ink slate; radius lg; space compact
+theme:
+  brand red
+  ink slate
+  canvas white
+  surface slate
+  radius lg
+  space compact
 
 page /:
   hero:

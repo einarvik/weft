@@ -218,8 +218,12 @@ impl<'source> Parser<'source> {
                     name: non_empty(name, line.number, "site name")?.to_owned(),
                     line: line.number,
                 });
+            } else if line.content == "theme:" {
+                document.theme.extend(self.theme_block(line.number)?);
             } else if let Some(tokens) = line.content.strip_prefix("theme:") {
-                document.theme.extend(parse_theme(tokens, line.number)?);
+                document
+                    .theme
+                    .extend(parse_theme_inline(tokens, line.number)?);
             } else if let Some(path) = line
                 .content
                 .strip_prefix("page ")
@@ -238,6 +242,26 @@ impl<'source> Parser<'source> {
         }
 
         Ok(document)
+    }
+
+    fn theme_block(&mut self, line: usize) -> Result<BTreeMap<String, String>, ParseError> {
+        let mut theme = BTreeMap::new();
+        while self.at_child_level(1) {
+            let child = self.next().expect("theme child must exist");
+            let (name, value) = parse_theme_pair(child.content, child.number)?;
+            theme.insert(name, value);
+        }
+        if theme.is_empty() {
+            if let Some(child) = self.peek().filter(|child| child.level > 0) {
+                return Err(error(child.number, "unexpected indentation"));
+            }
+            return Err(error(
+                line,
+                "theme blocks require an indented `name value` pair",
+            ));
+        }
+        self.reject_deeper_than(0)?;
+        Ok(theme)
     }
 
     fn page(&mut self, path: String, line: usize) -> Result<Page, ParseError> {
@@ -506,24 +530,98 @@ impl<'source> Parser<'source> {
     }
 }
 
-fn parse_theme(tokens: &str, line: usize) -> Result<BTreeMap<String, String>, ParseError> {
-    tokens
-        .split(';')
-        .filter(|token| !token.trim().is_empty())
-        .map(|token| {
-            let mut words = token.split_whitespace();
-            let name = words
-                .next()
-                .ok_or_else(|| error(line, "theme token name is required"))?;
-            let value = words
-                .next()
-                .ok_or_else(|| error(line, "theme token value is required"))?;
-            if words.next().is_some() {
-                return Err(error(line, "theme tokens use `name value` pairs"));
-            }
-            Ok((name.to_owned(), value.to_owned()))
-        })
-        .collect()
+fn parse_theme_inline(tokens: &str, line: usize) -> Result<BTreeMap<String, String>, ParseError> {
+    let mut theme = BTreeMap::new();
+    for token in tokens.split(';') {
+        if token.trim().is_empty() {
+            continue;
+        }
+        let (name, value) = parse_theme_pair(token, line)?;
+        theme.insert(name, value);
+    }
+    if theme.is_empty() {
+        return Err(error(line, "theme requires at least one `name value` pair"));
+    }
+    Ok(theme)
+}
+
+fn parse_theme_pair(tokens: &str, line: usize) -> Result<(String, String), ParseError> {
+    let mut words = tokens.split_whitespace();
+    let name = words
+        .next()
+        .ok_or_else(|| error(line, "theme token name is required"))?;
+    let value = words
+        .next()
+        .ok_or_else(|| error(line, "theme token value is required"))?;
+    if words.next().is_some() {
+        return Err(error(line, "theme tokens use `name value` pairs"));
+    }
+    validate_theme_pair(name, value, line)?;
+    Ok((name.to_owned(), value.to_owned()))
+}
+
+fn validate_theme_pair(name: &str, value: &str, line: usize) -> Result<(), ParseError> {
+    match name {
+        "brand" | "ink" if is_palette(value) => Ok(()),
+        "brand" | "ink" => Err(error(
+            line,
+            format!(
+                "unsupported `{name}` value `{value}`; expected a named palette such as `red`, `blue`, or `violet`"
+            ),
+        )),
+        "canvas" | "surface" if matches!(value, "white" | "black") || is_palette(value) => Ok(()),
+        "canvas" | "surface" => Err(error(
+            line,
+            format!(
+                "unsupported `{name}` value `{value}`; expected `white`, `black`, or a named palette"
+            ),
+        )),
+        "radius" if matches!(value, "sm" | "md" | "lg" | "pill") => Ok(()),
+        "radius" => Err(error(
+            line,
+            format!("unsupported `radius` value `{value}`; expected `sm`, `md`, `lg`, or `pill`"),
+        )),
+        "space" if matches!(value, "tight" | "compact" | "normal" | "roomy") => Ok(()),
+        "space" => Err(error(
+            line,
+            format!(
+                "unsupported `space` value `{value}`; expected `tight`, `compact`, `normal`, or `roomy`"
+            ),
+        )),
+        _ => Err(error(
+            line,
+            format!(
+                "unknown theme token `{name}`; expected `brand`, `ink`, `canvas`, `surface`, `radius`, or `space`"
+            ),
+        )),
+    }
+}
+
+fn is_palette(value: &str) -> bool {
+    matches!(
+        value,
+        "red"
+            | "orange"
+            | "amber"
+            | "yellow"
+            | "lime"
+            | "green"
+            | "emerald"
+            | "teal"
+            | "cyan"
+            | "sky"
+            | "blue"
+            | "indigo"
+            | "violet"
+            | "purple"
+            | "fuchsia"
+            | "pink"
+            | "rose"
+            | "slate"
+            | "gray"
+            | "zinc"
+            | "stone"
+    )
 }
 
 fn text_value(content: &str, keyword: &str, line: usize) -> Result<TextExpr, ParseError> {

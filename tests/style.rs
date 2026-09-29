@@ -12,12 +12,29 @@ fn emits_raw_css_only_for_declared_layout_values() {
     let css = render_css(SOURCE).expect("source should parse");
 
     assert!(css.contains("--weft-brand:#6d28d9"));
+    assert!(css.contains("--weft-canvas:#fff"));
+    assert!(css.contains("--weft-surface:#f8fafc"));
     assert!(css.contains(".weft-cards[data-columns=\"3\"]"));
     assert!(css.contains("[data-gap=\"lg\"]"));
     assert!(css.contains("[data-surface=\"soft\"]"));
     assert!(!css.contains("[data-gap=\"sm\"]"));
     assert!(!css.contains("tailwind"));
     assert!(!css.contains("className"));
+}
+
+#[test]
+fn emits_semantic_colors_from_an_inline_theme() {
+    let css = render_css(
+        "theme: brand red; ink slate; canvas white; surface slate\npage /:\n  section features cards 1:\n    card \"Native\" \"CSS\"\n",
+    )
+    .expect("theme source should parse");
+
+    assert!(css.contains("--weft-brand:#dc2626"));
+    assert!(css.contains("--weft-ink:#0f172a"));
+    assert!(css.contains("--weft-canvas:#fff"));
+    assert!(css.contains("--weft-surface:#f8fafc"));
+    assert!(css.contains("body{margin:0;background:var(--weft-canvas)"));
+    assert!(css.contains(".weft-card{background:var(--weft-surface)"));
 }
 
 #[test]

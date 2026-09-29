@@ -61,6 +61,46 @@ fn parses_the_planned_document_shape() {
 }
 
 #[test]
+fn parses_an_indented_validated_theme_block() {
+    let source = r#"theme:
+  brand red
+  ink slate
+  canvas white
+  surface zinc
+  radius md
+  space normal
+page /:
+"#;
+
+    let document = parse(source).expect("theme block should parse");
+
+    assert_eq!(document.theme["brand"], "red");
+    assert_eq!(document.theme["canvas"], "white");
+    assert_eq!(document.theme["space"], "normal");
+}
+
+#[test]
+fn rejects_invalid_theme_tokens_and_values_with_their_source_line() {
+    let unknown = parse("theme: font sans\npage /:\n").expect_err("unknown token must fail");
+    assert_eq!(unknown.line, 1);
+    assert!(unknown.message.contains("unknown theme token `font`"));
+
+    let value =
+        parse("theme:\n  brand vermillion\npage /:\n").expect_err("unknown palette must fail");
+    assert_eq!(value.line, 2);
+    assert!(
+        value
+            .message
+            .contains("unsupported `brand` value `vermillion`")
+    );
+
+    let malformed = parse("theme:\n    brand red\npage /:\n")
+        .expect_err("theme entries must use one indentation level");
+    assert_eq!(malformed.line, 2);
+    assert!(malformed.message.contains("unexpected indentation"));
+}
+
+#[test]
 fn parses_semantic_sections_and_named_island_references() {
     let source = r#"site Acme
 page /:
