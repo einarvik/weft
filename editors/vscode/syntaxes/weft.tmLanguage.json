@@ -19,7 +19,7 @@
           "patterns": [
             {
               "name": "entity.other.attribute-name.weft",
-              "match": "\\b(?:wrap|gap|surface):[a-z]+\\b"
+              "match": "\\b(?:wrap|gap|brand|ink|canvas|surface):[a-z]+\\b"
             }
           ]
         }
