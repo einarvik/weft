@@ -71,7 +71,7 @@ For the example above, Weft retains its ordinary root declaration and appends a 
 
 ```css
 :root{--weft-brand:#2563eb;--weft-ink:#0f172a;--weft-canvas:#fff;--weft-surface:#f8fafc;…}
-@media (prefers-color-scheme: dark){:root{--weft-brand:#0284c7;--weft-ink:#fff;--weft-canvas:#000;--weft-surface:#f4f4f5}}
+@media (prefers-color-scheme: dark){:root{--weft-brand:#0284c7;--weft-ink:#fff;--weft-canvas:#000;--weft-surface:#18181b}}
 ```
 
 Only supplied dark color roles appear in the media query. Omitted roles continue to inherit the base custom property. Dark `ink` also accepts `white` or `black`, which compile to literal neutral values; other dark values follow their existing role validation. A source file with no `dark:` block emits exactly no `prefers-color-scheme` CSS.

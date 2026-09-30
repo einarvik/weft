@@ -14,6 +14,7 @@ Weft is a free, open-source Rust compiler for compact website descriptions. Sour
 - `section name:` is a semantic flow section supporting `eyebrow`, `title`, `text`, `image "src" alt TextExpr [caption TextExpr]`, inline `island counter:`, and `use name`. Standalone images compile to native figure/img/optional figcaption markup; `alt` is mandatory and non-empty.
 - `island name counter:` declares a non-rendering named island. Each `use name` mounts an independent local instance.
 - `theme:` accepts either inline `name value; name value` pairs or an indented block of `name value` pairs. A block can nest `dark:` with one further indentation level of `brand`, `ink`, `canvas`, and `surface` overrides. Dark `ink` also accepts `white` or `black`; it compiles to `prefers-color-scheme: dark` CSS only, with no JavaScript. Tokens are `brand`, `ink`, `canvas`, `surface`, `radius`, and `space`; invalid tokens/values fail with their source line.
+- Every declaration that currently supports normal `@="key:value …"` styling also accepts `@dark="key:value …"`. It conditionally scopes `brand`, `ink`, `canvas`, and `surface` color-role overrides to that declaration and descendants; it emits only native dark-mode CSS and no JavaScript. `brand` needs a named palette; `ink`, `canvas`, and `surface` also allow `white` or `black`.
 - Invalid syntax must stop compilation and include a source location.
 - `weft check file.wft` validates a source file without writing generated artifacts. It is the editor-integration contract; the Rust compiler remains the authoritative parser and validator.
 
@@ -39,6 +40,9 @@ page /:
 
   section name cards 3:
     card "Title" "Description"
+
+  section features cards 3 @="surface:soft" @dark="surface:zinc ink:white":
+    card "Dark-aware" "A scoped semantic override."
 
   island counter:
     label "Seats"

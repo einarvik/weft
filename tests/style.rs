@@ -40,12 +40,11 @@ fn emits_semantic_colors_from_an_inline_theme() {
 #[test]
 fn emits_only_declared_dark_theme_overrides() {
     let css = render_css(
-        "theme:\n  brand blue\n  ink slate\n  dark:\n    brand sky\n    ink white\n    canvas black\npage /:\n",
+        "theme:\n  brand blue\n  ink slate\n  dark:\n    brand sky\n    ink white\n    canvas black\n    surface zinc\npage /:\n",
     )
     .expect("dark theme source should parse");
 
-    assert!(css.contains("@media (prefers-color-scheme: dark){:root{--weft-brand:#0284c7;--weft-ink:#fff;--weft-canvas:#000;}}"));
-    assert!(!css.contains("@media (prefers-color-scheme: dark){:root{--weft-surface"));
+    assert!(css.contains("@media (prefers-color-scheme: dark){:root{--weft-brand:#0284c7;--weft-ink:#fff;--weft-canvas:#000;--weft-surface:#18181b;}}"));
 }
 
 #[test]
@@ -63,6 +62,32 @@ fn lowers_style_intent_to_safe_html_attributes() {
     assert!(html.contains("data-gap=\"lg\""));
     assert!(html.contains("data-surface=\"soft\""));
     assert!(html.contains("data-surface=\"soft\">\n      <div class=\"weft-cards\""));
+}
+
+#[test]
+fn lowers_dark_style_intent_to_scoped_theme_variables() {
+    let source = r#"site Acme
+page /:
+  section features cards 3 @="surface:soft" @dark="surface:zinc ink:white":
+    card "Native" "CSS"
+"#;
+
+    let html = render_html(source).expect("dark style source should render");
+    let css = render_css(source).expect("dark style source should render");
+
+    assert!(html.contains("data-dark-surface=\"zinc\""));
+    assert!(html.contains("data-dark-ink=\"white\""));
+    assert!(css.contains(".weft-section[data-dark-surface=\"zinc\"]{--weft-surface:#18181b}"));
+    assert!(css.contains(".weft-section[data-dark-ink=\"white\"]{--weft-ink:#fff}"));
+    assert!(css.contains(".weft-section{color:var(--weft-ink);"));
+}
+
+#[test]
+fn rejects_unsupported_dark_style_intent() {
+    let source = "site Acme\npage /:\n  section features cards 1 @dark=\"gap:lg\":\n";
+
+    let error = render_html(source).expect_err("dark layout intent must fail");
+    assert!(error.to_string().contains("unsupported style declaration"));
 }
 
 #[test]

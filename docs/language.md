@@ -81,7 +81,7 @@ Card image sources accept relative paths and `https://` URLs. Alternate text is 
 ### Standalone images
 
 ```wft
-section story @="wrap:reading gap:lg":
+section story @="wrap:reading gap:lg" @dark="surface:zinc ink:white":
   title "A calmer workspace"
   image "/images/workspace.webp" alt "A project workspace showing an issue list" caption "The Acme project overview."
 ```
@@ -136,7 +136,7 @@ theme:
     ink white
     canvas black
     surface zinc
-section features cards 3 @="wrap:wide gap:lg surface:soft"
+section features cards 3 @="wrap:wide gap:lg surface:soft" @dark="surface:zinc ink:white"
 ```
 
 | Token | Values | Role |
@@ -151,6 +151,17 @@ section features cards 3 @="wrap:wide gap:lg surface:soft"
 Omitted roles use `brand violet`, `ink slate`, `canvas white`, a soft neutral surface, `radius md`, and `space normal`. Every supplied token and value is validated: Weft reports the declaration line instead of silently falling back to another color.
 
 `dark:` is valid only inside an indented `theme:` block. It contains one further level of `brand`, `ink`, `canvas`, or `surface` declarations; these override only the supplied color roles when the browser reports a dark system preference. It uses the normal color values and additionally allows `ink white` or `ink black`; `radius` and `space` are not valid in `dark:`. The feature uses no JavaScript, toggle, or saved preference. An inline `theme: …` declaration describes the base theme only.
+
+### Conditional component styles
+
+Any declaration that supports `@="…"` also supports `@dark="…"`. Both annotations may appear independently and in either order. `@dark` applies semantic color-role overrides only when the browser prefers dark mode; it emits no JavaScript.
+
+```wft
+section features cards 3 @="wrap:wide gap:lg surface:soft" @dark="surface:zinc ink:white":
+  card "One source of truth" "Keep context close to the work."
+```
+
+`@dark` accepts `brand`, `ink`, `canvas`, and `surface` as `key:value` pairs. `brand` accepts a named palette; the other roles accept a named palette, `white`, or `black`. The overrides are scoped to the rendered declaration, so cards and future child components consume the local color variables automatically. Conditional layout declarations such as `@dark="gap:lg"` are invalid.
 
 Generated CSS may use custom properties, `@media`, Grid, Flexbox, `clamp()`, and `:focus-visible`. It must be raw CSS and should emit only values/rules used by the page. Theme roles compile to literal values in `--weft-brand`, `--weft-ink`, `--weft-canvas`, `--weft-surface`, `--weft-radius`, and `--weft-space`. When `dark:` is present, Weft emits only its supplied color variables inside `@media (prefers-color-scheme: dark)`.
 

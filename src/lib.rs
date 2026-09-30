@@ -54,8 +54,14 @@ pub struct Hero {
 pub struct Section {
     pub line: usize,
     pub name: String,
-    pub style: Option<String>,
+    pub styles: StyleAnnotations,
     pub kind: SectionKind,
+}
+
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct StyleAnnotations {
+    pub normal: Option<String>,
+    pub dark: Option<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -406,7 +412,7 @@ impl<'source> Parser<'source> {
         let header = header
             .strip_suffix(':')
             .ok_or_else(|| error(line, "section declarations must end with `:`"))?;
-        let (header, style) = split_style(header, line)?;
+        let (header, styles) = split_style_annotations(header, line)?;
         let mut words = header.split_whitespace();
         let name = words
             .next()
@@ -442,7 +448,7 @@ impl<'source> Parser<'source> {
         Ok(Section {
             line,
             name: name.to_owned(),
-            style,
+            styles,
             kind,
         })
     }
@@ -658,7 +664,7 @@ fn validate_theme_pair(name: &str, value: &str, line: usize) -> Result<(), Parse
     }
 }
 
-fn is_palette(value: &str) -> bool {
+pub(crate) fn is_palette(value: &str) -> bool {
     matches!(
         value,
         "red"
@@ -838,18 +844,44 @@ fn parse_range(content: &str, line: usize) -> Result<Range, ParseError> {
     })
 }
 
-fn split_style(header: &str, line: usize) -> Result<(&str, Option<String>), ParseError> {
-    match header.split_once(" @=") {
-        None => Ok((header, None)),
-        Some((main, style)) => Ok((main, Some(quoted(style, line)?.to_owned()))),
-    }
-}
+fn split_style_annotations(
+    header: &str,
+    line: usize,
+) -> Result<(&str, StyleAnnotations), ParseError> {
+    let Some(annotation_start) = header.find(" @") else {
+        return Ok((header, StyleAnnotations::default()));
+    };
+    let main = &header[..annotation_start];
+    let mut rest = &header[annotation_start..];
+    let mut styles = StyleAnnotations::default();
 
-fn quoted(value: &str, line: usize) -> Result<&str, ParseError> {
-    value
-        .strip_prefix('"')
-        .and_then(|value| value.strip_suffix('"'))
-        .ok_or_else(|| error(line, "expected a double-quoted string"))
+    while !rest.is_empty() {
+        rest = rest
+            .strip_prefix(' ')
+            .ok_or_else(|| error(line, "style annotations must be separated by spaces"))?;
+        let (kind, value) = if let Some(value) = rest.strip_prefix("@=") {
+            ("normal", value)
+        } else if let Some(value) = rest.strip_prefix("@dark=") {
+            ("dark", value)
+        } else {
+            return Err(error(
+                line,
+                "expected `@=\"key:value\"` or `@dark=\"key:value\"`",
+            ));
+        };
+        let (value, remaining) = take_quoted(value, line)?;
+        let target = if kind == "normal" {
+            &mut styles.normal
+        } else {
+            &mut styles.dark
+        };
+        if target.replace(value.to_owned()).is_some() {
+            return Err(error(line, format!("duplicate `{kind}` style annotation")));
+        }
+        rest = remaining;
+    }
+
+    Ok((main, styles))
 }
 
 fn take_quoted(value: &str, line: usize) -> Result<(&str, &str), ParseError> {

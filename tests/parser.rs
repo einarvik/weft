@@ -49,9 +49,10 @@ fn parses_the_planned_document_shape() {
     };
     assert_eq!(*columns, 3);
     assert_eq!(
-        section.style.as_deref(),
+        section.styles.normal.as_deref(),
         Some("wrap:wide gap:lg surface:soft")
     );
+    assert!(section.styles.dark.is_none());
     assert_eq!(items.len(), 2);
 
     let Block::Island(island) = &page.blocks[2] else {
@@ -97,6 +98,37 @@ page /:
     assert_eq!(document.dark_theme["brand"], "sky");
     assert_eq!(document.dark_theme["ink"], "white");
     assert_eq!(document.dark_theme["canvas"], "black");
+}
+
+#[test]
+fn parses_normal_and_dark_style_annotations_in_any_order() {
+    let source = r#"page /:
+  section features cards 3 @dark="surface:zinc ink:white" @="wrap:wide gap:lg":
+    card "One" "Two"
+"#;
+
+    let document = parse(source).expect("style annotations should parse");
+    let Block::Section(section) = &document.pages[0].blocks[0] else {
+        panic!("expected a section");
+    };
+    assert_eq!(section.styles.normal.as_deref(), Some("wrap:wide gap:lg"));
+    assert_eq!(
+        section.styles.dark.as_deref(),
+        Some("surface:zinc ink:white")
+    );
+}
+
+#[test]
+fn rejects_duplicate_or_unknown_style_annotations() {
+    let duplicate = parse("page /:\n  section work @dark=\"ink:white\" @dark=\"surface:zinc\":\n")
+        .expect_err("duplicate dark annotation must fail");
+    assert_eq!(duplicate.line, 2);
+    assert!(duplicate.message.contains("duplicate `dark`"));
+
+    let unknown = parse("page /:\n  section work @light=\"ink:slate\":\n")
+        .expect_err("unknown annotation must fail");
+    assert_eq!(unknown.line, 2);
+    assert!(unknown.message.contains("expected `@="));
 }
 
 #[test]

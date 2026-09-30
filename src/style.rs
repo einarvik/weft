@@ -207,7 +207,7 @@ pub fn render_document(document: &Document) -> String {
         space(document)
     );
     write_dark_theme(&mut css, document);
-    css.push_str("*{box-sizing:border-box}\nbody{margin:0;background:var(--weft-canvas);color:var(--weft-ink);font-family:system-ui,sans-serif;line-height:1.5}\na{color:inherit}\n:focus-visible{outline:3px solid var(--weft-brand);outline-offset:3px}\nmain{padding:clamp(2rem,8vw,7rem) 1.5rem}\n.weft-hero,.weft-section{margin-inline:auto;max-width:72rem}.weft-hero{max-width:52rem}.weft-eyebrow{color:var(--weft-brand);font-weight:700;text-transform:uppercase;letter-spacing:.08em}.weft-title{font-size:clamp(2.5rem,7vw,5.5rem);line-height:1.02;letter-spacing:-.05em}.weft-lede{font-size:clamp(1.125rem,2vw,1.375rem);max-width:42rem}.weft-actions{display:flex;flex-wrap:wrap;gap:var(--weft-space)}.weft-action{border-radius:var(--weft-radius);padding:.75rem 1rem;text-decoration:none}.weft-action--primary{background:var(--weft-brand);color:#fff}.weft-action--quiet{text-decoration:underline}.weft-section{margin-top:clamp(4rem,10vw,9rem)}.weft-cards{display:grid;gap:var(--weft-space);grid-template-columns:1fr}.weft-card{background:var(--weft-surface);border:1px solid color-mix(in srgb,var(--weft-ink) 15%,transparent);border-radius:var(--weft-radius);padding:clamp(1.25rem,3vw,2rem)}\n");
+    css.push_str("*{box-sizing:border-box}\nbody{margin:0;background:var(--weft-canvas);color:var(--weft-ink);font-family:system-ui,sans-serif;line-height:1.5}\na{color:inherit}\n:focus-visible{outline:3px solid var(--weft-brand);outline-offset:3px}\nmain{padding:clamp(2rem,8vw,7rem) 1.5rem}\n.weft-hero,.weft-section{margin-inline:auto;max-width:72rem}.weft-hero{max-width:52rem}.weft-eyebrow{color:var(--weft-brand);font-weight:700;text-transform:uppercase;letter-spacing:.08em}.weft-title{font-size:clamp(2.5rem,7vw,5.5rem);line-height:1.02;letter-spacing:-.05em}.weft-lede{font-size:clamp(1.125rem,2vw,1.375rem);max-width:42rem}.weft-actions{display:flex;flex-wrap:wrap;gap:var(--weft-space)}.weft-action{border-radius:var(--weft-radius);padding:.75rem 1rem;text-decoration:none}.weft-action--primary{background:var(--weft-brand);color:#fff}.weft-action--quiet{text-decoration:underline}.weft-section{color:var(--weft-ink);margin-top:clamp(4rem,10vw,9rem)}.weft-cards{display:grid;gap:var(--weft-space);grid-template-columns:1fr}.weft-card{background:var(--weft-surface);border:1px solid color-mix(in srgb,var(--weft-ink) 15%,transparent);border-radius:var(--weft-radius);padding:clamp(1.25rem,3vw,2rem)}\n");
 
     let columns = columns(document);
     if columns.iter().any(|count| *count > 1) {
@@ -247,6 +247,7 @@ pub fn render_document(document: &Document) -> String {
             ".weft-section[data-surface=\"plain\"] .weft-card{background:var(--weft-surface)}\n",
         );
     }
+    write_dark_style_overrides(&mut css, document);
     if has_card_images(document) {
         css.push_str(".weft-card-image{aspect-ratio:4/3;border-radius:calc(var(--weft-radius) * .75);display:block;margin-bottom:1.25rem;object-fit:cover;width:100%}\n");
     }
@@ -293,11 +294,69 @@ fn styles(document: &Document) -> BTreeSet<&str> {
         .iter()
         .flat_map(|page| &page.blocks)
         .filter_map(|block| match block {
-            Block::Section(section) => section.style.as_deref(),
+            Block::Section(section) => section.styles.normal.as_deref(),
             _ => None,
         })
         .flat_map(str::split_whitespace)
         .collect()
+}
+
+fn dark_styles(document: &Document) -> BTreeSet<&str> {
+    document
+        .pages
+        .iter()
+        .flat_map(|page| &page.blocks)
+        .filter_map(|block| match block {
+            Block::Section(section) => section.styles.dark.as_deref(),
+            _ => None,
+        })
+        .flat_map(str::split_whitespace)
+        .collect()
+}
+
+fn write_dark_style_overrides(css: &mut String, document: &Document) {
+    let styles = dark_styles(document);
+    let mut overrides = Vec::new();
+    for declaration in styles {
+        let Some((role, value)) = declaration.split_once(':') else {
+            continue;
+        };
+        let Some(color) = dark_style_color(role, value) else {
+            continue;
+        };
+        overrides.push((role, value, color));
+    }
+    if overrides.is_empty() {
+        return;
+    }
+
+    css.push_str("@media (prefers-color-scheme: dark){");
+    for (role, value, color) in overrides {
+        write!(
+            css,
+            ".weft-section[data-dark-{role}=\"{value}\"]{{--weft-{role}:{color}}}"
+        )
+        .expect("writing to a String cannot fail");
+    }
+    css.push_str("}\n");
+}
+
+fn dark_style_color(role: &str, value: &str) -> Option<&'static str> {
+    let palette = palette(value);
+    match role {
+        "brand" => palette.map(|palette| palette.brand),
+        "ink" => match value {
+            "white" => Some("#fff"),
+            "black" => Some("#000"),
+            _ => palette.map(|palette| palette.ink),
+        },
+        "canvas" | "surface" => match value {
+            "white" => Some("#fff"),
+            "black" => Some("#000"),
+            _ => palette.map(|palette| palette.ink),
+        },
+        _ => None,
+    }
 }
 
 #[derive(Clone, Copy)]
@@ -360,6 +419,18 @@ fn ink_color_from_theme(
     }
 }
 
+fn dark_surface_color_from_theme(
+    theme: &BTreeMap<String, String>,
+    token: &str,
+    fallback: &'static str,
+) -> &'static str {
+    match theme.get(token).map(String::as_str) {
+        Some("white") => "#fff",
+        Some("black") => "#000",
+        _ => palette_color_from_theme(theme, token, PaletteRole::Ink, fallback),
+    }
+}
+
 fn write_dark_theme(css: &mut String, document: &Document) {
     if document.dark_theme.is_empty() {
         return;
@@ -372,7 +443,9 @@ fn write_dark_theme(css: &mut String, document: &Document) {
                 palette_color_from_theme(&document.dark_theme, token, PaletteRole::Brand, "#6d28d9")
             }
             "ink" => ink_color_from_theme(&document.dark_theme, token, "#0f172a"),
-            "canvas" | "surface" => surface_color_from_theme(&document.dark_theme, token, "#fff"),
+            "canvas" | "surface" => {
+                dark_surface_color_from_theme(&document.dark_theme, token, "#000")
+            }
             _ => unreachable!("the token list is fixed"),
         };
         if document.dark_theme.contains_key(token) {

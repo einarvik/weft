@@ -243,9 +243,21 @@ fn validate_image_source(image: &crate::Image) -> Result<(), RenderError> {
 }
 
 fn render_style_attributes(section: &Section, html: &mut String) -> Result<(), RenderError> {
-    let Some(style) = &section.style else {
-        return Ok(());
-    };
+    if let Some(style) = &section.styles.normal {
+        render_style_declarations(section, style, "", html)?;
+    }
+    if let Some(style) = &section.styles.dark {
+        render_style_declarations(section, style, "dark-", html)?;
+    }
+    Ok(())
+}
+
+fn render_style_declarations(
+    section: &Section,
+    style: &str,
+    prefix: &str,
+    html: &mut String,
+) -> Result<(), RenderError> {
     for declaration in style.split_whitespace() {
         let (property, value) =
             declaration
@@ -254,12 +266,18 @@ fn render_style_attributes(section: &Section, html: &mut String) -> Result<(), R
                     line: section.line,
                     declaration: declaration.to_owned(),
                 })?;
-        let supported = matches!(
-            (property, value),
-            ("wrap", "wide" | "reading")
-                | ("gap", "sm" | "md" | "lg")
-                | ("surface", "soft" | "plain")
-        );
+        let supported = if prefix.is_empty() {
+            matches!(
+                (property, value),
+                ("wrap", "wide" | "reading")
+                    | ("gap", "sm" | "md" | "lg")
+                    | ("surface", "soft" | "plain")
+            )
+        } else {
+            matches!(property, "brand") && crate::is_palette(value)
+                || matches!(property, "ink" | "canvas" | "surface")
+                    && (crate::is_palette(value) || matches!(value, "white" | "black"))
+        };
         if !supported {
             return Err(RenderError::InvalidStyle {
                 line: section.line,
@@ -267,6 +285,7 @@ fn render_style_attributes(section: &Section, html: &mut String) -> Result<(), R
             });
         }
         html.push_str(" data-");
+        html.push_str(prefix);
         html.push_str(property);
         html.push_str("=\"");
         html.push_str(value);

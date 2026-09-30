@@ -14,7 +14,7 @@
       "patterns": [
         {
           "name": "meta.style.weft",
-          "begin": "@=\\\"",
+          "begin": "@(?:dark)?=\\\"",
           "end": "\\\"",
           "patterns": [
             {
